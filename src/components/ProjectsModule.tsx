@@ -40,6 +40,7 @@ import {
   MONTH_COLUMNS,
   INITIAL_COLLABORATORS,
   CLIENT_COMPANIES,
+  BASE_MONTHLY_CAPACITY_HOURS,
 } from '../data/kogniaData';
 
 interface ProjectsModuleProps {
@@ -131,17 +132,18 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
     startDate: '2026-10-15',
     endDate: '2026-12-15',
     additionalDate: '2026-11-20',
-    estimatedHours: 120,
+    estimatedHours: 65,
     activeMonths: ['2026-10', '2026-11'],
     tasks: [
-      { id: 't-new-1', title: 'Planificación de entregables y arquitectura', completed: false },
-      { id: 't-new-2', title: 'Ejecución técnica e integración', completed: false },
-      { id: 't-new-3', title: 'Validación en ambiente de pruebas', completed: false },
+      { id: 't-new-1', title: 'Planificación de entregables y arquitectura', completed: false, hours: 20 },
+      { id: 't-new-2', title: 'Ejecución técnica e integración', completed: false, hours: 30 },
+      { id: 't-new-3', title: 'Validación en ambiente de pruebas', completed: false, hours: 15 },
     ] as ActivityTask[],
   };
 
   const [formData, setFormData] = useState(initialFormState);
   const [newTaskInput, setNewTaskInput] = useState('');
+  const [newTaskHours, setNewTaskHours] = useState<number | string>(8);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [selectedCollaboratorForDetail, setSelectedCollaboratorForDetail] = useState<CollaboratorCapacity | null>(null);
 
@@ -155,6 +157,7 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
       ],
     });
     setNewTaskInput('');
+    setNewTaskHours(8);
     setIsModalOpen(true);
   };
 
@@ -199,14 +202,15 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
       estimatedHours: act.estimatedHours,
       activeMonths: act.activeMonths || ['2026-10'],
       tasks: act.tasks?.length
-        ? act.tasks
+        ? act.tasks.map((t) => ({ ...t, hours: t.hours ?? 10 }))
         : [
-            { id: `t-def-1`, title: 'Diseño e inicio de entregables', completed: (act.progressPercent || 0) > 0 },
-            { id: `t-def-2`, title: 'Implementación técnica', completed: (act.progressPercent || 0) >= 50 },
-            { id: `t-def-3`, title: 'Cierre y entrega al cliente', completed: (act.progressPercent || 0) === 100 },
+            { id: `t-def-1`, title: 'Diseño e inicio de entregables', completed: (act.progressPercent || 0) > 0, hours: 15 },
+            { id: `t-def-2`, title: 'Implementación técnica', completed: (act.progressPercent || 0) >= 50, hours: 25 },
+            { id: `t-def-3`, title: 'Cierre y entrega al cliente', completed: (act.progressPercent || 0) === 100, hours: 10 },
           ],
     });
     setNewTaskInput('');
+    setNewTaskHours(8);
     setIsModalOpen(true);
   };
 
@@ -302,23 +306,65 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
   // Add task to checklist in form
   const handleAddTaskToForm = () => {
     if (!newTaskInput.trim()) return;
+    const hoursNum = Math.max(1, Number(newTaskHours) || 8);
     const newTask: ActivityTask = {
       id: `t-${Date.now()}`,
       title: newTaskInput.trim(),
       completed: false,
+      hours: hoursNum,
     };
     const updatedTasks = [...formData.tasks, newTask];
     // recalculate progress if there are tasks
     const completedCount = updatedTasks.filter((t) => t.completed).length;
     const autoProgress = Math.round((completedCount / updatedTasks.length) * 100);
+    const totalTaskHours = updatedTasks.reduce((acc, t) => acc + (t.hours || 0), 0);
 
     setFormData((prev) => ({
       ...prev,
       tasks: updatedTasks,
+      estimatedHours: totalTaskHours > 0 ? totalTaskHours : prev.estimatedHours,
       progressPercent: autoProgress,
       status: getStatusFromProgress(autoProgress),
     }));
     setNewTaskInput('');
+    setNewTaskHours(8);
+  };
+
+  // Update task hours in form
+  const handleUpdateTaskHoursInForm = (taskId: string, hours: number) => {
+    const validHours = Math.max(0, hours || 0);
+    const updatedTasks = formData.tasks.map((t) =>
+      t.id === taskId ? { ...t, hours: validHours } : t
+    );
+    const totalTaskHours = updatedTasks.reduce((acc, t) => acc + (t.hours || 0), 0);
+
+    setFormData((prev) => ({
+      ...prev,
+      tasks: updatedTasks,
+      estimatedHours: totalTaskHours > 0 ? totalTaskHours : prev.estimatedHours,
+    }));
+  };
+
+  // Quick sync: Set allocation % based on task effort hours vs 182h reference
+  const handleSyncTasksHoursToAllocation = () => {
+    const totalTaskHours = formData.tasks.reduce((acc, t) => acc + (t.hours || 0), 0);
+    if (totalTaskHours <= 0) return;
+    const computedPercent = Math.min(200, Math.round((totalTaskHours / BASE_MONTHLY_CAPACITY_HOURS) * 100));
+    
+    // Distribute among assignees or set for single assignee
+    const count = formData.assignees.length || 1;
+    const perAssignee = Math.max(5, Math.round(computedPercent / count));
+    const updatedAssignees = formData.assignees.map((a) => ({
+      ...a,
+      percent: perAssignee,
+    }));
+
+    setFormData((prev) => ({
+      ...prev,
+      assignees: updatedAssignees,
+      allocationPercent: computedPercent,
+      estimatedHours: totalTaskHours,
+    }));
   };
 
   // Toggle task in form
@@ -342,10 +388,12 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
     const updatedTasks = formData.tasks.filter((t) => t.id !== taskId);
     const completedCount = updatedTasks.filter((t) => t.completed).length;
     const autoProgress = updatedTasks.length > 0 ? Math.round((completedCount / updatedTasks.length) * 100) : 0;
+    const totalTaskHours = updatedTasks.reduce((acc, t) => acc + (t.hours || 0), 0);
 
     setFormData((prev) => ({
       ...prev,
       tasks: updatedTasks,
+      estimatedHours: totalTaskHours > 0 ? totalTaskHours : prev.estimatedHours,
       progressPercent: autoProgress,
       status: getStatusFromProgress(autoProgress),
     }));
@@ -529,6 +577,17 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
     return Math.round(sum / months.length);
   };
 
+  // Dynamic Average Assigned Hours per Collaborator for the currently visible/filtered period
+  const getColDynamicHours = (col: CollaboratorCapacity) => {
+    const months = visibleMonthColumns;
+    if (months.length === 0) return 0;
+    const sum = months.reduce((acc, m) => {
+      const val = col.monthlyAllocations[m.key]?.assignedHours || 0;
+      return acc + val;
+    }, 0);
+    return Math.round(sum / months.length);
+  };
+
   // Capacity filtering
   const filteredCapacityCollaborators = useMemo(() => {
     return collaborators.filter((col) => {
@@ -593,7 +652,7 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
 
       activeMonthsData.forEach((m) => {
         totalAssignedHoursSum += m.assignedHours || 0;
-        totalAvailableHoursSum += m.availableHours || 186;
+        totalAvailableHoursSum += m.availableHours || BASE_MONTHLY_CAPACITY_HOURS;
       });
 
       if (activeMonthsData.some((m) => m.isOverload)) overloadCount++;
@@ -898,6 +957,17 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                         <div className="font-mono-tech text-[9px] text-[#181B1E]/60 truncate mt-0.5">
                           {act.projectName}
                         </div>
+                        {act.tasks && act.tasks.length > 0 && (
+                          <div className="flex items-center gap-1.5 mt-1 font-mono-tech text-[8.5px]">
+                            <span className="inline-flex items-center gap-1 font-bold text-[#07B1C5] bg-[#07B1C5]/10 px-1.5 py-0.2 rounded border border-[#07B1C5]/20">
+                              <CheckSquare className="h-2.5 w-2.5" />
+                              {act.tasks.filter((t) => t.completed).length}/{act.tasks.length} tareas
+                            </span>
+                            <span className="font-bold text-[#0F2942]/70 bg-[#F3F0EB] px-1.5 py-0.2 rounded border border-[#0F2942]/10">
+                              {act.tasks.reduce((sum, t) => sum + (t.hours || 0), 0)}h esfuerzo
+                            </span>
+                          </div>
+                        )}
                       </td>
 
                       {/* Client */}
@@ -907,12 +977,12 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                         </div>
                       </td>
 
-                      {/* Assignee (1 o más colaboradores con su respectivo %) */}
+                      {/* Assignee (1 o más colaboradores con su respectivo % y horas sobre 182h) */}
                       <td className="px-3 py-2.5">
                         {act.assignees && act.assignees.length > 0 ? (
                           <div className="space-y-1.5">
                             {act.assignees.map((as) => (
-                              <div key={as.id} className="flex items-center justify-between gap-2 max-w-[220px]">
+                              <div key={as.id} className="flex items-center justify-between gap-2 max-w-[250px]">
                                 <div className="flex items-center gap-1.5 min-w-0">
                                   <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0F2942]/10 text-[9px] font-bold text-[#0F2942]">
                                     {as.person.split(' ').map((n) => n[0]).slice(0, 2).join('')}
@@ -921,12 +991,20 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                                     {as.person}
                                   </span>
                                 </div>
-                                <span
-                                  className="shrink-0 font-mono-tech text-[10px] font-bold text-[#0F2942] bg-[#F3F0EB] border border-[#0F2942]/15 px-1.5 py-0.5 rounded shadow-2xs"
-                                  title={`Asignación individual de ${as.person}: ${as.percent}%`}
-                                >
-                                  {as.percent}%
-                                </span>
+                                <div className="shrink-0 flex items-center gap-1 font-mono-tech">
+                                  <span
+                                    className="text-[10px] font-bold text-[#0F2942] bg-[#F3F0EB] border border-[#0F2942]/15 px-1.5 py-0.5 rounded shadow-2xs"
+                                    title={`Asignación individual de ${as.person}: ${as.percent}%`}
+                                  >
+                                    {as.percent}%
+                                  </span>
+                                  <span
+                                    className="text-[9.5px] font-bold text-[#07B1C5] bg-[#07B1C5]/10 border border-[#07B1C5]/20 px-1 py-0.5 rounded"
+                                    title={`${Math.round((as.percent / 100) * BASE_MONTHLY_CAPACITY_HOURS * 10) / 10} horas asignadas de 182h`}
+                                  >
+                                    {Math.round((as.percent / 100) * BASE_MONTHLY_CAPACITY_HOURS * 10) / 10}h
+                                  </span>
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -936,7 +1014,7 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                               {act.assignedPerson}
                             </div>
                             <div className="font-mono-tech text-[9px] text-[#181B1E]/55">
-                              {act.assignedRole}
+                              {act.assignedRole} · {act.allocationPercent}% ({Math.round((act.allocationPercent / 100) * BASE_MONTHLY_CAPACITY_HOURS * 10) / 10}h)
                             </div>
                           </div>
                         )}
@@ -1150,18 +1228,18 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                             Asignados ({act.assignees?.length || 1})
                           </span>
                           <span className="font-mono-tech text-[9.5px] font-bold text-[#0F2942] bg-[#F3F0EB] border border-[#0F2942]/15 px-1.5 py-0.5 rounded shadow-2xs">
-                            {act.allocationPercent}% cap.
+                            {act.allocationPercent}% ({Math.round((act.allocationPercent / 100) * BASE_MONTHLY_CAPACITY_HOURS * 10) / 10}h)
                           </span>
                         </div>
                         {act.assignees && act.assignees.length > 0 ? (
                           <div className="space-y-1">
                             {act.assignees.map((as) => (
                               <div key={as.id} className="flex items-center justify-between text-[10px]">
-                                <span className="font-semibold text-[#0F2942] truncate max-w-[130px]">
+                                <span className="font-semibold text-[#0F2942] truncate max-w-[120px]">
                                   {as.person}
                                 </span>
-                                <span className="font-mono-tech text-[9px] font-bold text-[#0F2942] bg-[#07B1C5]/10 border border-[#07B1C5]/20 px-1 rounded">
-                                  {as.percent}%
+                                <span className="font-mono-tech text-[9px] font-bold text-[#07B1C5] bg-[#07B1C5]/10 border border-[#07B1C5]/20 px-1 py-0.2 rounded">
+                                  {as.percent}% · {Math.round((as.percent / 100) * BASE_MONTHLY_CAPACITY_HOURS * 10) / 10}h
                                 </span>
                               </div>
                             ))}
@@ -1339,7 +1417,7 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                           >
                             <span className="font-mono-tech text-[9px] text-white font-medium truncate flex items-center gap-1">
                               {isDelayed && <AlertTriangle className="h-2.5 w-2.5 text-white shrink-0" />}
-                              <span>{act.code} ({act.allocationPercent}%)</span>
+                              <span>{act.code} ({act.allocationPercent}% · {Math.round((act.allocationPercent / 100) * BASE_MONTHLY_CAPACITY_HOURS)}h)</span>
                             </span>
                             <span className="font-mono-tech text-[9px] text-white font-bold">
                               {isDelayed ? 'Atrasado' : `${act.progressPercent || 0}%`}
@@ -1389,14 +1467,15 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                       : '🟢 Carga Óptima'}
                   </span>
                 </div>
-                <div className="flex items-baseline gap-2.5 mt-0.5">
+                <div className="flex flex-wrap items-baseline gap-2 mt-0.5">
                   <span className="font-mono-tech text-2xl sm:text-3xl font-bold text-[#0F2942]">
                     {capacityMetrics.avgAllocation}%
                   </span>
-                  <span className="font-mono-tech text-[11px] text-[#181B1E]/60">
-                    en {visibleMonthColumns.length}{' '}
-                    {visibleMonthColumns.length === 1 ? 'mes visualizado' : 'meses visualizados'} ·{' '}
-                    {collaborators.length} especialistas registrados
+                  <span className="font-mono-tech text-xs text-[#07B1C5] font-bold">
+                    ({capacityMetrics.assignedHours}h de {capacityMetrics.totalHours}h)
+                  </span>
+                  <span className="font-mono-tech text-[10px] text-[#181B1E]/60">
+                    · Base 182h/mes por especialista
                   </span>
                 </div>
                 <div className="mt-1.5 h-1.5 w-48 sm:w-64 rounded-full bg-[#F3F0EB] overflow-hidden">
@@ -1441,11 +1520,16 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                 </span>
               </div>
               <div className="flex flex-col items-center justify-center px-3 py-2 rounded-lg bg-[#0F2942]/5 border border-[#0F2942]/10 min-w-[95px]">
-                <span className="font-mono-tech text-base font-bold text-[#0F2942]">
-                  {capacityMetrics.assignedHours}h
-                </span>
-                <span className="font-mono-tech text-[10px] text-[#181B1E]/60 font-semibold tracking-tight">
-                  de {capacityMetrics.totalHours}h
+                <div className="flex items-baseline gap-1">
+                  <span className="font-mono-tech text-base font-bold text-[#0F2942]">
+                    {capacityMetrics.assignedHours}h
+                  </span>
+                  <span className="font-mono-tech text-[9.5px] text-[#181B1E]/60">
+                    / {capacityMetrics.totalHours}h
+                  </span>
+                </div>
+                <span className="font-mono-tech text-[10px] text-[#07B1C5] font-bold tracking-tight">
+                  {Math.round((capacityMetrics.assignedHours / (capacityMetrics.totalHours || 1)) * 100)}% Ocupado
                 </span>
               </div>
             </div>
@@ -1604,14 +1688,14 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                   <tr className="border-b border-[#0F2942]/10 bg-[#F3F0EB]/60 font-mono-tech text-[10px] text-[#0F2942]/70 uppercase">
                     <th className="py-2.5 pl-4 pr-3 font-medium w-[220px]">Colaborador</th>
                     <th className="px-3 py-2.5 font-medium text-center border-l border-[#0F2942]/8 w-[150px] bg-[#07B1C5]/[0.06]">
-                      Promedio Asignación
+                      Promedio (% / 182h)
                     </th>
                     {visibleMonthColumns.map((m) => (
                       <th
                         key={m.key}
-                        className="px-3 py-2.5 font-medium text-center border-l border-[#0F2942]/8 min-w-[120px]"
+                        className="px-3 py-2.5 font-medium text-center border-l border-[#0F2942]/8 min-w-[130px]"
                       >
-                        {m.label}
+                        {m.label} <span className="text-[9px] opacity-70 lowercase">(182h)</span>
                       </th>
                     ))}
                     <th className="px-4 py-2.5 font-medium text-center border-l border-[#0F2942]/8 w-[150px]">
@@ -1622,6 +1706,7 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                 <tbody className="divide-y divide-[#0F2942]/8 text-[11px]">
                   {sortedCapacityCollaborators.map((col) => {
                     const colAvg = getColDynamicAvg(col);
+                    const colHoursAvg = getColDynamicHours(col);
                     const isOverload = colAvg > 100;
                     const isLimit = colAvg >= 85 && colAvg <= 100;
 
@@ -1647,9 +1732,9 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                           </div>
                         </td>
 
-                        {/* 2. Columna Dinámica: Promedio de Asignación por Mes/Año */}
+                        {/* 2. Columna Dinámica: Promedio de Asignación por Mes/Año (% y Horas Asignadas de 182h) */}
                         <td className="p-3 border-l border-[#0F2942]/8 align-middle text-center bg-[#07B1C5]/[0.02]">
-                          <div className="flex items-center justify-center gap-1.5 mb-1">
+                          <div className="flex items-center justify-center gap-1.5 mb-0.5">
                             <span
                               className={`font-mono-tech text-sm font-bold ${
                                 isOverload
@@ -1662,15 +1747,18 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                               {colAvg}%
                             </span>
                             {isOverload && (
-                              <span className="font-mono-tech text-[8.5px] font-bold text-red-700 bg-red-100 px-1 py-0.5 rounded">
+                              <span className="font-mono-tech text-[8.5px] font-bold text-red-700 bg-red-100 px-1 py-0.2 rounded">
                                 Sobrecarga
                               </span>
                             )}
                             {isLimit && (
-                              <span className="font-mono-tech text-[8.5px] font-bold text-amber-700 bg-amber-100 px-1 py-0.5 rounded">
+                              <span className="font-mono-tech text-[8.5px] font-bold text-amber-700 bg-amber-100 px-1 py-0.2 rounded">
                                 Límite
                               </span>
                             )}
+                          </div>
+                          <div className="font-mono-tech text-[10px] font-bold text-[#07B1C5] mb-1">
+                            {colHoursAvg}h <span className="text-[9px] text-[#181B1E]/45 font-normal">/ 182h</span>
                           </div>
                           <div className="h-1.5 w-full max-w-[100px] mx-auto rounded-full bg-[#0F2942]/10 overflow-hidden">
                             <div
@@ -1686,12 +1774,12 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                           </div>
                         </td>
 
-                        {/* 3..N. Monthly Matrix Cells */}
+                        {/* 3..N. Monthly Matrix Cells (% y Horas Asignadas de 182h) */}
                         {visibleMonthColumns.map((m) => {
                           const mData = col.monthlyAllocations[m.key] || {
                             assignedHours: 0,
                             totalPercent: 0,
-                            availableHours: 186,
+                            availableHours: BASE_MONTHLY_CAPACITY_HOURS,
                             availablePercent: 100,
                             isOverload: false,
                             isLimit: false,
@@ -1710,7 +1798,7 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                                   : ''
                               }`}
                             >
-                              <div className="flex items-center justify-center gap-2 mb-1.5">
+                              <div className="flex items-center justify-center gap-1.5 mb-0.5">
                                 <span
                                   className={`font-mono-tech text-sm font-bold ${
                                     mData.isOverload
@@ -1724,10 +1812,14 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                                 </span>
 
                                 {mData.isOverload && (
-                                  <span className="font-mono-tech text-[9px] font-bold text-red-700 bg-red-600/10 px-1.5 py-0.5 rounded">
+                                  <span className="font-mono-tech text-[8.5px] font-bold text-red-700 bg-red-600/10 px-1 py-0.2 rounded">
                                     +{mData.overloadPercent}%
                                   </span>
                                 )}
+                              </div>
+
+                              <div className="font-mono-tech text-[10px] text-[#181B1E]/70 font-semibold mb-1">
+                                {mData.assignedHours}h <span className="text-[9px] text-[#181B1E]/40 font-normal">/ 182h</span>
                               </div>
 
                               <div className="h-1.5 w-full max-w-[110px] mx-auto rounded-full bg-[#0F2942]/10 overflow-hidden">
@@ -1840,78 +1932,181 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                 </div>
               </div>
 
-              {/* CHECKLIST DE TAREAS */}
-              <div className="rounded-xl bg-[#F3F0EB]/60 border border-[#0F2942]/10 p-3 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <label className="font-mono-tech text-[10px] font-bold text-[#0F2942] uppercase">
-                    Checklist de Tareas / Subtareas
-                  </label>
-                  <span className="font-mono-tech text-[10px] text-[#07B1C5] font-bold">
-                    {formData.tasks.filter((t) => t.completed).length}/{formData.tasks.length} completadas
-                  </span>
-                </div>
+              {/* CHECKLIST DE TAREAS & HORAS DE ESFUERZO */}
+              {(() => {
+                const totalTaskHours = formData.tasks.reduce((acc, t) => acc + (t.hours || 0), 0);
+                const completedTaskHours = formData.tasks
+                  .filter((t) => t.completed)
+                  .reduce((acc, t) => acc + (t.hours || 0), 0);
+                const totalCapPercent = ((totalTaskHours / BASE_MONTHLY_CAPACITY_HOURS) * 100).toFixed(1);
 
-                <div className="space-y-1.5 max-h-36 overflow-y-auto">
-                  {formData.tasks.map((task) => (
-                    <div
-                      key={task.id}
-                      className="flex items-center justify-between gap-2 rounded bg-white border border-[#0F2942]/10 p-1.5 text-xs"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => handleToggleTaskInForm(task.id)}
-                        className="flex items-center gap-2 text-left flex-1 min-w-0 cursor-pointer"
-                      >
-                        {task.completed ? (
-                          <CheckSquare className="h-4 w-4 text-[#2F7F61] shrink-0" />
-                        ) : (
-                          <Square className="h-4 w-4 text-[#181B1E]/40 shrink-0" />
-                        )}
-                        <span
-                          className={`truncate ${
-                            task.completed ? 'line-through text-[#2F7F61]/70' : 'text-[#0F2942]'
-                          }`}
-                        >
-                          {task.title}
+                return (
+                  <div className="rounded-xl bg-[#F3F0EB]/60 border border-[#0F2942]/10 p-3 space-y-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <label className="font-mono-tech text-[10px] font-bold text-[#0F2942] uppercase tracking-wide">
+                          Checklist de Tareas / Subtareas
+                        </label>
+                        <span className="font-mono-tech text-[9.5px] text-[#07B1C5] font-bold bg-[#07B1C5]/10 px-2 py-0.5 rounded border border-[#07B1C5]/20">
+                          {formData.tasks.filter((t) => t.completed).length}/{formData.tasks.length} completadas
                         </span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveTaskFromForm(task.id)}
-                        className="text-[#181B1E]/40 hover:text-red-600 p-0.5 cursor-pointer"
-                        title="Eliminar tarea"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                      </div>
 
-                {/* Add new task to checklist */}
-                <div className="flex items-center gap-2 pt-1 border-t border-[#0F2942]/10">
-                  <input
-                    type="text"
-                    value={newTaskInput}
-                    onChange={(e) => setNewTaskInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddTaskToForm();
-                      }
-                    }}
-                    placeholder="Escribe una nueva tarea y presiona Añadir..."
-                    className="flex-1 rounded border border-[#0F2942]/20 bg-white px-2.5 py-1 text-xs text-[#0F2942] focus:border-[#07B1C5] focus:outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddTaskToForm}
-                    disabled={!newTaskInput.trim()}
-                    className="rounded bg-[#0F2942] px-3 py-1 font-mono-tech text-[10px] font-bold text-white hover:bg-[#0F2942]/90 disabled:opacity-50 cursor-pointer"
-                  >
-                    + Añadir
-                  </button>
-                </div>
-              </div>
+                      {/* Resumen total de horas y ocupación sobre las 182h */}
+                      <div className="flex items-center gap-2 font-mono-tech text-[10px]">
+                        <span className="font-bold text-[#0F2942] bg-white border border-[#0F2942]/15 px-2 py-0.5 rounded shadow-2xs">
+                          Esfuerzo: <strong className="text-[#07B1C5]">{totalTaskHours}h</strong>{' '}
+                          <span className="text-[#181B1E]/50 font-normal">({completedTaskHours}h listas)</span>
+                        </span>
+                        <span className="text-[#181B1E]/70 font-semibold hidden sm:inline" title="Ocupación sobre la capacidad base de 182 horas mensuales">
+                          Ocupa: <strong className="text-[#0F2942]">{totalCapPercent}%</strong> de 182h
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Sincronización rápida opcional si hay horas de tareas */}
+                    {totalTaskHours > 0 && (
+                      <div className="flex items-center justify-between gap-2 bg-[#07B1C5]/10 border border-[#07B1C5]/20 px-2.5 py-1.5 rounded-lg text-[10.5px]">
+                        <div className="flex items-center gap-1.5 text-[#0F2942] font-mono-tech">
+                          <TrendingUp className="h-3.5 w-3.5 text-[#07B1C5] shrink-0" />
+                          <span>
+                            Total: <strong>{totalTaskHours}h</strong> de esfuerzo = <strong>{totalCapPercent}%</strong> de la capacidad base (182h).
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleSyncTasksHoursToAllocation}
+                          className="font-mono-tech text-[9.5px] font-bold text-[#0F2942] bg-white hover:bg-[#0F2942] hover:text-white px-2 py-0.5 rounded border border-[#0F2942]/15 transition-colors cursor-pointer shrink-0 shadow-2xs"
+                          title="Ajusta el % de asignación para que coincida exactamente con las horas estimadas de las tareas"
+                        >
+                          Sincronizar a Asignación
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-0.5">
+                      {formData.tasks.map((task) => {
+                        const taskHours = task.hours || 0;
+                        const taskPercent = ((taskHours / BASE_MONTHLY_CAPACITY_HOURS) * 100).toFixed(1);
+
+                        return (
+                          <div
+                            key={task.id}
+                            className="flex items-center justify-between gap-2 rounded bg-white border border-[#0F2942]/10 p-1.5 text-xs hover:border-[#07B1C5]/30 transition-colors"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => handleToggleTaskInForm(task.id)}
+                              className="flex items-center gap-2 text-left flex-1 min-w-0 cursor-pointer"
+                            >
+                              {task.completed ? (
+                                <CheckSquare className="h-4 w-4 text-[#2F7F61] shrink-0" />
+                              ) : (
+                                <Square className="h-4 w-4 text-[#181B1E]/40 shrink-0" />
+                              )}
+                              <span
+                                className={`truncate ${
+                                  task.completed ? 'line-through text-[#2F7F61]/70' : 'text-[#0F2942] font-medium'
+                                }`}
+                              >
+                                {task.title}
+                              </span>
+                            </button>
+
+                            {/* Horas de esfuerzo individual de la tarea + % de 182h */}
+                            <div className="flex items-center gap-1.5 shrink-0 font-mono-tech">
+                              <div
+                                className="flex items-center gap-1 bg-[#F3F0EB]/70 border border-[#0F2942]/15 rounded px-1.5 py-0.5"
+                                title="Horas de esfuerzo estimadas para esta tarea"
+                              >
+                                <Clock className="h-3 w-3 text-[#07B1C5]" />
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="182"
+                                  value={taskHours}
+                                  onChange={(e) =>
+                                    handleUpdateTaskHoursInForm(task.id, Number(e.target.value))
+                                  }
+                                  className="w-12 bg-transparent text-right font-bold text-xs text-[#0F2942] focus:outline-none"
+                                />
+                                <span className="text-[10px] text-[#181B1E]/60 font-semibold">h</span>
+                              </div>
+
+                              <span
+                                className="font-mono-tech text-[9.5px] font-bold text-[#0F2942]/70 bg-[#0F2942]/5 border border-[#0F2942]/10 px-1.5 py-0.5 rounded shadow-2xs"
+                                title={`Esta subtarea representa el ${taskPercent}% de las 182 horas mensuales`}
+                              >
+                                {taskPercent}%
+                              </span>
+
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveTaskFromForm(task.id)}
+                                className="text-[#181B1E]/40 hover:text-red-600 p-0.5 cursor-pointer transition-colors"
+                                title="Eliminar tarea"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Add new task to checklist with Title & Hours */}
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-2 border-t border-[#0F2942]/10">
+                      <input
+                        type="text"
+                        value={newTaskInput}
+                        onChange={(e) => setNewTaskInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddTaskToForm();
+                          }
+                        }}
+                        placeholder="Escribe una nueva tarea / subtarea..."
+                        className="flex-1 rounded border border-[#0F2942]/20 bg-white px-2.5 py-1 text-xs text-[#0F2942] focus:border-[#07B1C5] focus:outline-none"
+                      />
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <div
+                          className="flex items-center gap-1 rounded border border-[#0F2942]/20 bg-white px-2 py-1"
+                          title="Cantidad de horas de esfuerzo para la nueva tarea"
+                        >
+                          <Clock className="h-3 w-3 text-[#07B1C5]" />
+                          <input
+                            type="number"
+                            min="1"
+                            max="182"
+                            value={newTaskHours}
+                            onChange={(e) => setNewTaskHours(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleAddTaskToForm();
+                              }
+                            }}
+                            placeholder="Horas"
+                            className="w-14 text-right font-mono-tech text-xs font-bold text-[#0F2942] focus:outline-none"
+                          />
+                          <span className="font-mono-tech text-[10px] text-[#181B1E]/60 font-semibold">h</span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handleAddTaskToForm}
+                          disabled={!newTaskInput.trim()}
+                          className="rounded bg-[#0F2942] px-3 py-1 font-mono-tech text-[10px] font-bold text-white hover:bg-[#07B1C5] hover:text-[#0F2942] transition-colors disabled:opacity-50 cursor-pointer shadow-xs"
+                        >
+                          + Añadir
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* % DE AVANCE & ESTADO (SINCRONIZADOS) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-xl bg-white border border-[#0F2942]/10 p-3">
@@ -1984,14 +2179,20 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                     </span>
                   </div>
 
-                  {/* CAPACIDAD (COLOR SIMPLE Y ELEGANTE) */}
-                  <div className="flex items-center gap-1.5 bg-[#0F2942] border border-[#0F2942] rounded-lg px-2.5 py-1 shadow-xs text-white">
+                  {/* CAPACIDAD (% Y HORAS SOBRE BASE 182H) */}
+                  <div className="flex items-center gap-1.5 bg-[#0F2942] border border-[#0F2942] rounded-lg px-2.5 py-1.5 shadow-xs text-white">
                     <TrendingUp className="h-3.5 w-3.5 text-[#07B1C5]" />
-                    <span className="font-mono-tech text-[10px] font-bold uppercase tracking-wider">
+                    <span className="font-mono-tech text-[10px] font-bold uppercase tracking-wider text-white/80">
                       Capacidad:
                     </span>
                     <span className="font-mono-tech text-xs font-bold text-[#07B1C5] bg-white/10 px-2 py-0.5 rounded border border-white/20">
                       {formData.allocationPercent}%
+                    </span>
+                    <span className="font-mono-tech text-xs font-bold text-white">
+                      · {Math.round((formData.allocationPercent / 100) * BASE_MONTHLY_CAPACITY_HOURS * 10) / 10}h
+                    </span>
+                    <span className="font-mono-tech text-[9px] text-white/60">
+                      / 182h
                     </span>
                   </div>
                 </div>
@@ -2028,11 +2229,14 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                         </select>
                       </div>
 
-                      {/* Asignación Individual */}
-                      <div className="w-full sm:w-[160px] shrink-0">
+                      {/* Asignación Individual (% y Horas Asignadas de 182h) */}
+                      <div className="w-full sm:w-[220px] shrink-0">
                         <div className="flex items-center justify-between mb-1">
                           <span className="font-mono-tech text-[9px] font-bold text-[#0F2942] uppercase tracking-wide">
                             Asignación
+                          </span>
+                          <span className="font-mono-tech text-[9.5px] font-bold text-[#07B1C5] bg-[#0F2942]/5 px-1.5 py-0.2 rounded border border-[#0F2942]/10 shadow-2xs">
+                            {Math.round((as.percent / 100) * BASE_MONTHLY_CAPACITY_HOURS * 10) / 10}h / 182h
                           </span>
                         </div>
                         <div className="flex items-center gap-1.5">
@@ -2284,7 +2488,7 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                           {act.allocationPercent}% asignación
                         </div>
                         <div className="text-[10px] text-[#07B1C5] font-bold">
-                          {act.progressPercent}% avance
+                          {Math.round((act.allocationPercent / 100) * BASE_MONTHLY_CAPACITY_HOURS * 10) / 10}h de 182h · {act.progressPercent}% avance
                         </div>
                       </div>
                     </div>
@@ -2337,13 +2541,18 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                       </div>
                     </div>
 
-                    {/* Checklist Tasks preview if any */}
+                    {/* Checklist Tasks preview with hours */}
                     {act.tasks && act.tasks.length > 0 && (
                       <div className="pt-1 border-t border-[#0F2942]/8">
-                        <span className="font-mono-tech text-[9px] font-bold text-[#0F2942]/70 uppercase">
-                          Subtareas / Checklist ({act.tasks.filter((t) => t.completed).length}/{act.tasks.length}):
-                        </span>
-                        <div className="mt-1 flex flex-wrap gap-1">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-mono-tech text-[9px] font-bold text-[#0F2942]/70 uppercase">
+                            Subtareas / Checklist ({act.tasks.filter((t) => t.completed).length}/{act.tasks.length} completadas):
+                          </span>
+                          <span className="font-mono-tech text-[9px] font-bold text-[#07B1C5]">
+                            {act.tasks.reduce((sum, t) => sum + (t.hours || 0), 0)}h de esfuerzo total
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
                           {act.tasks.map((t) => (
                             <span
                               key={t.id}
@@ -2354,7 +2563,8 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                               }`}
                             >
                               <span>{t.completed ? '✓' : '○'}</span>
-                              <span className="truncate max-w-[160px]">{t.title}</span>
+                              <span className="truncate max-w-[180px]">{t.title}</span>
+                              <strong className="text-[#07B1C5] font-bold">({t.hours || 0}h)</strong>
                             </span>
                           ))}
                         </div>

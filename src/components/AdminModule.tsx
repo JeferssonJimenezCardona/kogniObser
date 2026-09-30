@@ -132,13 +132,13 @@ export const AdminModule: React.FC = () => {
   const [newRoleName, setNewRoleName] = useState('');
 
   const [workSchedules, setWorkSchedules] = useState<{ name: string; hours: number; days: number }[]>([
-    { name: 'Semana LV - Dia (186h estándar)', hours: 186, days: 22 },
+    { name: 'Semana LV - Dia (182h estándar)', hours: 182, days: 22 },
     { name: 'Semana LV - Turno Extendido (200h)', hours: 200, days: 22 },
     { name: 'Turno Rotativo Faena Minera (168h)', hours: 168, days: 14 },
-    { name: 'Medio Tiempo / Preventa (93h)', hours: 93, days: 22 },
+    { name: 'Medio Tiempo / Preventa (91h)', hours: 91, days: 22 },
   ]);
   const [newScheduleName, setNewScheduleName] = useState('');
-  const [newScheduleHours, setNewScheduleHours] = useState(186);
+  const [newScheduleHours, setNewScheduleHours] = useState(182);
 
   const [limitThreshold, setLimitThreshold] = useState(85);
   const [overloadThreshold, setOverloadThreshold] = useState(100);
