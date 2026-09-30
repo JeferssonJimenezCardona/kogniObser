@@ -47,6 +47,59 @@ export interface CommercialCommitment {
   completed: boolean;
 }
 
+export interface QuotationExcelRow {
+  id: string;
+  concept: string; // Entregable / Concepto
+  category: 'Setup / Arquitectura' | 'Licencias & Plataforma' | 'Desarrollo & IA' | 'Soporte & Cloud' | 'Consultoría';
+  qty: number; // Cantidad / Horas / Licencias
+  unitPrice: number; // Tarifa / Valor unitario
+  total: number; // qty * unitPrice (Fórmula)
+}
+
+export interface OpportunityQuotation {
+  id: string;
+  code: string; // e.g. COT-2026-01-A
+  title: string; // e.g. Propuesta Base o Fase 1
+  setupPrice: number; // Precio de Setup / Implementación Inicial
+  salePrice: number; // Precio de Venta / Fee o Total
+  currency: string;
+  discountPct?: number; // Descuento Comercial (%)
+  taxPct?: number; // Impuestos / IVA (%)
+  totalPrice: number; // Formula automática: (setupPrice + salePrice) * (1 - discount/100) * (1 + tax/100)
+  status: 'Borrador' | 'Enviada' | 'En Negociación' | 'Aprobada' | 'Rechazada';
+  validUntil: string;
+  description: string;
+  commercialConditions: string;
+  excelRows?: QuotationExcelRow[]; // Filas editables del modelo de costos Excel
+  attachedFileName?: string;
+  attachedFileSize?: string;
+  attachedFileDate?: string;
+  isPrimary?: boolean;
+}
+
+export interface SubOpportunity {
+  id: string;
+  code: string; // e.g. OPP-01
+  opportunityName: string; // Nombre de la oportunidad (Obligatorio)
+  description: string; // Descripción / necesidad
+  solutionProducts: string[]; // Producto / solución o línea de negocio
+  projectType: ProjectContractType; // Tipo de proyecto / contrato
+  stage: MocStage; // Etapa del pipeline / Estado
+  probability: number; // Probabilidad de cierre (%)
+  currency: string; // Moneda (USD, COP, EUR, MXN)
+  estimatedValue: number; // Valor estimado (TCV - Total Contract Value)
+  estimatedValueUsd?: number;
+  mrr: number; // Valor recurrente mensual (MRR)
+  expectedCloseDate: string; // Fecha estimada de cierre
+  startDate?: string; // Fecha inicio estimada
+  durationMonths?: number; // Duración estimada (meses)
+  priority: PriorityLevel; // Prioridad
+  owner: string; // Responsable comercial / Owner
+  techLead?: string; // Preventa técnica asignada
+  quotations?: OpportunityQuotation[]; // Cotizaciones vinculadas a esta oportunidad
+  isPrimary?: boolean;
+}
+
 export interface ClientOpportunity {
   id: string;
   code: string; // ID automático (ej: OPP-2026-01)
@@ -62,7 +115,7 @@ export interface ClientOpportunity {
   subsector: string; // Subsector (ej. Upstream, Banca, Seguros, EPS)
   leadSource: string; // Procedencia / Lead Source (Referido, Outbound, Evento, Alianza, Inbound, Licitación)
   leadSourceDetail: string; // Detalle de procedencia
-  accountType: 'Nueva cuenta' | 'Cliente actual'; // Cuenta nueva / existente
+  accountType?: 'Nueva cuenta' | 'Cliente actual'; // Opcional / Deprecado
   associatedPartner: string; // Partner asociado (AWS, Azure, Google Cloud, Databricks, etc.)
   associatedPartners?: string[]; // Lista múltiple de partners asociados (Checklist)
 
@@ -77,8 +130,9 @@ export interface ClientOpportunity {
   technicalInfluencer: string; // Influenciador técnico
   relationshipLevel: RelationshipLevel; // Nivel de relación
 
-  // 3. Oportunidad comercial
-  opportunityName: string; // Nombre de la oportunidad (Obligatorio)
+  // 3. Oportunidad comercial (Múltiples Oportunidades por Cliente)
+  opportunities?: SubOpportunity[]; // Lista de oportunidades asociadas al cliente
+  opportunityName: string; // Nombre de la oportunidad principal (Obligatorio)
   description: string; // Descripción / necesidad (Obligatorio)
   solutionProducts: string[]; // Producto / solución o línea de negocio
   projectType: ProjectContractType; // Tipo de proyecto / contrato
@@ -102,7 +156,8 @@ export interface ClientOpportunity {
   nextActionAssignee?: string; // Responsable
   commitments: CommercialCommitment[]; // Lista detallada de compromisos tipo check
 
-  // 5. Cotización Enterprise
+  // 5. Cotizaciones Enterprise (Múltiples Cotizaciones con Excel y Fórmulas)
+  quotations?: OpportunityQuotation[];
   quoteCode?: string;
   quoteSetupPrice?: number;
   quoteSalePrice?: number;
