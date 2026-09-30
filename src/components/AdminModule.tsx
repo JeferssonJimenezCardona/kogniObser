@@ -618,7 +618,7 @@ export const AdminModule: React.FC = () => {
             <div className="flex items-center gap-2">
               <Briefcase className="h-4 w-4 text-[#07B1C5]" />
               <span>
-                Parametriza estados de tareas, roles de consultores, jornadas de trabajo y umbrales de capacidad mensual.
+                Parametriza estados de tareas, roles de consultores, jornadas de trabajo y umbrales de capacidad.
               </span>
             </div>
             <span className="font-mono-tech text-[10px] text-[#07B1C5] font-bold">

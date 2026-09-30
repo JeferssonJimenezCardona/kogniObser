@@ -635,7 +635,7 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
             PROYECTOS
           </h1>
           <p className="font-mono-tech text-[10px] text-[#181B1E]/60">
-            Control de Actividades, Checklist de Tareas, Fechas &amp; Matriz Mensual
+            Control de Actividades, Checklist de Tareas, Fechas &amp; Capacidad
           </p>
         </div>
 
@@ -686,7 +686,7 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
             }`}
           >
             <Users className="h-3 w-3" />
-            Capacidad Mensual
+            Capacidad
           </button>
         </div>
       </div>
@@ -1984,11 +1984,11 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                     </span>
                   </div>
 
-                  {/* CAPACIDAD MENSUAL (COLOR SIMPLE Y ELEGANTE) */}
+                  {/* CAPACIDAD (COLOR SIMPLE Y ELEGANTE) */}
                   <div className="flex items-center gap-1.5 bg-[#0F2942] border border-[#0F2942] rounded-lg px-2.5 py-1 shadow-xs text-white">
                     <TrendingUp className="h-3.5 w-3.5 text-[#07B1C5]" />
                     <span className="font-mono-tech text-[10px] font-bold uppercase tracking-wider">
-                      Capacidad Mensual:
+                      Capacidad:
                     </span>
                     <span className="font-mono-tech text-xs font-bold text-[#07B1C5] bg-white/10 px-2 py-0.5 rounded border border-white/20">
                       {formData.allocationPercent}%

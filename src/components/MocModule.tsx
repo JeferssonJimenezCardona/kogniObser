@@ -71,14 +71,14 @@ interface MocModuleProps {
   onQuickChangeStage: (clientId: string, newStage: MocStage) => void;
 }
 
-type MocSubTab = 'tabla' | 'dashboard';
+type MocSubTab = 'dashboard' | 'tabla';
 
 export const MocModule: React.FC<MocModuleProps> = ({
   clients,
   onSaveClient,
   onQuickChangeStage,
 }) => {
-  const [activeTab, setActiveTab] = useState<MocSubTab>('tabla');
+  const [activeTab, setActiveTab] = useState<MocSubTab>('dashboard');
 
   // Form Drawer State
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -1266,18 +1266,6 @@ export const MocModule: React.FC<MocModuleProps> = ({
         <div className="flex items-center gap-1.5 rounded-lg bg-white border border-[#0F2942]/10 p-1 shadow-xs">
           <button
             type="button"
-            onClick={() => setActiveTab('tabla')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
-              activeTab === 'tabla'
-                ? 'bg-[#0F2942] text-white shadow-xs'
-                : 'text-[#0F2942]/70 hover:text-[#0F2942]'
-            }`}
-          >
-            <TableIcon className="h-3 w-3" />
-            Tabla de Oportunidades
-          </button>
-          <button
-            type="button"
             onClick={() => setActiveTab('dashboard')}
             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
               activeTab === 'dashboard'
@@ -1287,6 +1275,18 @@ export const MocModule: React.FC<MocModuleProps> = ({
           >
             <BarChart3 className="h-3 w-3" />
             Dashboard Gerencial
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('tabla')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+              activeTab === 'tabla'
+                ? 'bg-[#0F2942] text-white shadow-xs'
+                : 'text-[#0F2942]/70 hover:text-[#0F2942]'
+            }`}
+          >
+            <TableIcon className="h-3 w-3" />
+            Tabla de Oportunidades
           </button>
         </div>
       </div>
@@ -1705,13 +1705,13 @@ export const MocModule: React.FC<MocModuleProps> = ({
               </div>
             </div>
 
-            {/* Card 2: Valor Ganado */}
+            {/* Card 2: Valor Contratado */}
             <div className="rounded-xl bg-white border border-[#2F7F61]/20 shadow-xs overflow-hidden flex flex-col justify-between hover:border-[#2F7F61]/40 transition-all">
               {/* Sección Superior: Dólar (USD) */}
               <div className="p-3.5 pb-2.5">
                 <div className="flex items-center justify-between">
                   <span className="font-mono-tech text-[10px] text-[#2F7F61]/80 uppercase tracking-wider font-semibold">
-                    VALOR GANADO
+                    VALOR CONTRATADO
                   </span>
                   <span className="font-mono-tech text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#2F7F61]/10 text-[#2F7F61] uppercase tracking-wide">
                     USD ($)
@@ -1721,7 +1721,7 @@ export const MocModule: React.FC<MocModuleProps> = ({
                   {formatUSD(dashMetrics.wonValue)}
                 </div>
                 <div className="font-mono-tech text-[10px] text-[#2F7F61] mt-0.5">
-                  {dashMetrics.wonDealsCount} cuentas cerradas ({dashMetrics.winRate}% win rate)
+                  {dashMetrics.wonDealsCount} cuentas contratadas ({dashMetrics.winRate}% win rate)
                 </div>
               </div>
 
@@ -1951,13 +1951,13 @@ export const MocModule: React.FC<MocModuleProps> = ({
                       />
                       <line x1="149" y1="318" x2="371" y2="318" stroke="#FFFFFF" strokeWidth="2" strokeOpacity="0.6" />
                       <text x="260" y="338" textAnchor="middle" fill="#FFFFFF" fontSize="11" fontWeight="800" fontFamily="Plus Jakarta Sans, sans-serif" letterSpacing="0.5">
-                        4. CONVERSIÓN (VALOR GANADO)
+                        4. CONVERSIÓN (VALOR CONTRATADO)
                       </text>
                       <text x="260" y="361" textAnchor="middle" fill="#FFFFFF" fontSize="16" fontWeight="800" fontFamily="DM Mono, monospace">
                         {formatUSD(dashMetrics.superFunnel[3]?.value || 0)}
                       </text>
                       <text x="260" y="379" textAnchor="middle" fill="#E2E8F0" fontSize="9.5" fontWeight="700" fontFamily="DM Mono, monospace">
-                        {dashMetrics.superFunnel[3]?.totalCount || 0} cuenta ganada · {dashMetrics.superFunnel[3]?.pct}% win rate
+                        {dashMetrics.superFunnel[3]?.totalCount || 0} cuenta contratada · {dashMetrics.superFunnel[3]?.pct}% win rate
                       </text>
                     </g>
 

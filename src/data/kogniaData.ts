@@ -186,7 +186,7 @@ export interface ClientOpportunity {
 }
 
 // -------------------------------------------------------------
-// Proyectos y Capacidad Mensual (Estructura de la Imagen)
+// Proyectos y Capacidad (Estructura de la Imagen)
 // -------------------------------------------------------------
 export type TaskStatus = 'Por Iniciar' | 'En Curso' | 'En Revisión' | 'Atrasado' | 'Completado';
 
