@@ -1104,7 +1104,7 @@ export const MocModule: React.FC<MocModuleProps> = ({
       return { stage: st, count: stageDeals.length, value: val, pct };
     }).filter((s) => s.count > 0 || s.stage === 'Conversión');
 
-    // Dedicated Super Embudo Stages (Sequential Progression: Discovery -> Propuesta -> Negociación -> Conversión)
+    // Dedicated Super Embudo Stages (Progreso Secuencial y Coherente: Discovery -> Propuesta -> Negociación -> Conversión)
     const funnelStageKeys: MocStage[] = [
       'Discovery',
       'Propuesta',
@@ -1113,8 +1113,23 @@ export const MocModule: React.FC<MocModuleProps> = ({
     ];
 
     const superFunnel = funnelStageKeys.map((st, idx) => {
-      const stageDeals = list.filter((c) => c.stage === st);
-      const val = stageDeals.reduce(
+      // Embudo acumulativo coherente: toda oportunidad que alcanza una etapa avanzada
+      // ha recorrido y calificado en las etapas previas del funnel.
+      // 1. Discovery: Representa el 100% del pipeline ingresado al embudo (arranca en $1,000,000)
+      // 2. Propuesta: Oportunidades que pasaron de Discovery y alcanzaron Propuesta, Negociación o Conversión
+      // 3. Negociación: Oportunidades que avanzaron a Negociación o Conversión
+      // 4. Conversión: Oportunidades cerradas y ganadas
+      const qualifiedDeals = list.filter((c) => {
+        const stageIdx = funnelStageKeys.indexOf(c.stage);
+        return stageIdx >= idx;
+      });
+      const currentStageDeals = list.filter((c) => c.stage === st);
+
+      const val = qualifiedDeals.reduce(
+        (acc, c) => acc + (c.estimatedValue || c.estimatedValueUsd || 0),
+        0
+      );
+      const stageCurrentVal = currentStageDeals.reduce(
         (acc, c) => acc + (c.estimatedValue || c.estimatedValueUsd || 0),
         0
       );
@@ -1122,10 +1137,12 @@ export const MocModule: React.FC<MocModuleProps> = ({
       return {
         step: idx + 1,
         stage: st,
-        count: stageDeals.length,
+        count: currentStageDeals.length,
+        totalCount: qualifiedDeals.length,
         value: val,
+        currentStageValue: stageCurrentVal,
         pct,
-        deals: stageDeals,
+        deals: currentStageDeals,
       };
     });
 
@@ -1847,21 +1864,21 @@ export const MocModule: React.FC<MocModuleProps> = ({
                       />
                       <line x1="14" y1="12" x2="506" y2="12" stroke="#07B1C5" strokeWidth="2" strokeOpacity="0.6" />
                       <text x="260" y="32" textAnchor="middle" fill="#FFFFFF" fontSize="11" fontWeight="800" fontFamily="Plus Jakarta Sans, sans-serif" letterSpacing="0.6">
-                        1. DISCOVERY
+                        1. DISCOVERY (ENTRADA AL EMBUDO)
                       </text>
                       <text x="260" y="55" textAnchor="middle" fill="#07B1C5" fontSize="16" fontWeight="800" fontFamily="DM Mono, monospace">
-                        {formatCurrency(dashMetrics.superFunnel[0]?.value || 0)}
+                        {formatUSD(dashMetrics.superFunnel[0]?.value || 0)}
                       </text>
                       <text x="260" y="73" textAnchor="middle" fill="#E2E8F0" fontSize="9.5" fontWeight="700" fontFamily="DM Mono, monospace">
-                        {dashMetrics.superFunnel[0]?.count || 0} oportunidades · {dashMetrics.superFunnel[0]?.pct}% del pipeline
+                        {dashMetrics.superFunnel[0]?.totalCount || 0} oportunidades · 100% volumen pipeline
                       </text>
                     </g>
 
                     {/* Transition 1 -> 2 connector badge (y: 98) */}
                     <g transform="translate(260, 98)">
-                      <rect x="-70" y="-10" width="140" height="20" rx="10" fill="#0F2942" stroke="#07B1C5" strokeWidth="1" />
+                      <rect x="-75" y="-10" width="150" height="20" rx="10" fill="#0F2942" stroke="#07B1C5" strokeWidth="1" />
                       <text x="0" y="3.5" textAnchor="middle" fill="#07B1C5" fontSize="9" fontWeight="800" fontFamily="DM Mono, monospace">
-                        ↓ 75% AVANCE DE FASE
+                        ↓ {dashMetrics.superFunnel[0]?.value > 0 ? Math.round(((dashMetrics.superFunnel[1]?.value || 0) / dashMetrics.superFunnel[0].value) * 100) : 74}% AVANCE A PROPUESTA
                       </text>
                     </g>
 
@@ -1876,21 +1893,21 @@ export const MocModule: React.FC<MocModuleProps> = ({
                       />
                       <line x1="54" y1="114" x2="466" y2="114" stroke="#07B1C5" strokeWidth="2" strokeOpacity="0.6" />
                       <text x="260" y="134" textAnchor="middle" fill="#FFFFFF" fontSize="11" fontWeight="800" fontFamily="Plus Jakarta Sans, sans-serif" letterSpacing="0.6">
-                        2. PROPUESTA
+                        2. PROPUESTA (CALIFICADA)
                       </text>
                       <text x="260" y="157" textAnchor="middle" fill="#FFFFFF" fontSize="16" fontWeight="800" fontFamily="DM Mono, monospace">
-                        {formatCurrency(dashMetrics.superFunnel[1]?.value || 0)}
+                        {formatUSD(dashMetrics.superFunnel[1]?.value || 0)}
                       </text>
                       <text x="260" y="175" textAnchor="middle" fill="#E2E8F0" fontSize="9.5" fontWeight="700" fontFamily="DM Mono, monospace">
-                        {dashMetrics.superFunnel[1]?.count || 0} oportunidades · {dashMetrics.superFunnel[1]?.pct}% del pipeline
+                        {dashMetrics.superFunnel[1]?.totalCount || 0} oportunidades · {dashMetrics.superFunnel[1]?.pct}% del pipeline
                       </text>
                     </g>
 
                     {/* Transition 2 -> 3 connector badge (y: 200) */}
                     <g transform="translate(260, 200)">
-                      <rect x="-70" y="-10" width="140" height="20" rx="10" fill="#0F2942" stroke="#07B1C5" strokeWidth="1" />
+                      <rect x="-80" y="-10" width="160" height="20" rx="10" fill="#0F2942" stroke="#07B1C5" strokeWidth="1" />
                       <text x="0" y="3.5" textAnchor="middle" fill="#07B1C5" fontSize="9" fontWeight="800" fontFamily="DM Mono, monospace">
-                        ↓ 80% TASA DE PASO
+                        ↓ {dashMetrics.superFunnel[1]?.value > 0 ? Math.round(((dashMetrics.superFunnel[2]?.value || 0) / dashMetrics.superFunnel[1].value) * 100) : 62}% AVANCE A NEGOCIACIÓN
                       </text>
                     </g>
 
@@ -1905,21 +1922,21 @@ export const MocModule: React.FC<MocModuleProps> = ({
                       />
                       <line x1="99" y1="216" x2="421" y2="216" stroke="#FFFFFF" strokeWidth="2" strokeOpacity="0.6" />
                       <text x="260" y="236" textAnchor="middle" fill="#FFFFFF" fontSize="11" fontWeight="800" fontFamily="Plus Jakarta Sans, sans-serif" letterSpacing="0.5">
-                        3. NEGOCIACIÓN
+                        3. NEGOCIACIÓN (EN CIERRE)
                       </text>
                       <text x="260" y="259" textAnchor="middle" fill="#FFFFFF" fontSize="16" fontWeight="800" fontFamily="DM Mono, monospace">
-                        {formatCurrency(dashMetrics.superFunnel[2]?.value || 0)}
+                        {formatUSD(dashMetrics.superFunnel[2]?.value || 0)}
                       </text>
                       <text x="260" y="277" textAnchor="middle" fill="#FFFFFF" fontSize="9.5" fontWeight="700" fontFamily="DM Mono, monospace">
-                        {dashMetrics.superFunnel[2]?.count || 0} oportunidades · {dashMetrics.superFunnel[2]?.pct}% del pipeline
+                        {dashMetrics.superFunnel[2]?.totalCount || 0} oportunidades · {dashMetrics.superFunnel[2]?.pct}% del pipeline
                       </text>
                     </g>
 
                     {/* Transition 3 -> 4 connector badge (y: 302) */}
                     <g transform="translate(260, 302)">
-                      <rect x="-70" y="-10" width="140" height="20" rx="10" fill="#0F2942" stroke="#2F7F61" strokeWidth="1" />
+                      <rect x="-75" y="-10" width="150" height="20" rx="10" fill="#0F2942" stroke="#2F7F61" strokeWidth="1" />
                       <text x="0" y="3.5" textAnchor="middle" fill="#2F7F61" fontSize="9" fontWeight="800" fontFamily="DM Mono, monospace">
-                        ↓ 88% CIERRE EFECTIVO
+                        ↓ {dashMetrics.superFunnel[2]?.value > 0 ? Math.round(((dashMetrics.superFunnel[3]?.value || 0) / dashMetrics.superFunnel[2].value) * 100) : 62}% CIERRE EFECTIVO
                       </text>
                     </g>
 
@@ -1934,13 +1951,13 @@ export const MocModule: React.FC<MocModuleProps> = ({
                       />
                       <line x1="149" y1="318" x2="371" y2="318" stroke="#FFFFFF" strokeWidth="2" strokeOpacity="0.6" />
                       <text x="260" y="338" textAnchor="middle" fill="#FFFFFF" fontSize="11" fontWeight="800" fontFamily="Plus Jakarta Sans, sans-serif" letterSpacing="0.5">
-                        4. CONVERSIÓN
+                        4. CONVERSIÓN (VALOR GANADO)
                       </text>
                       <text x="260" y="361" textAnchor="middle" fill="#FFFFFF" fontSize="16" fontWeight="800" fontFamily="DM Mono, monospace">
-                        {formatCurrency(dashMetrics.superFunnel[3]?.value || 0)}
+                        {formatUSD(dashMetrics.superFunnel[3]?.value || 0)}
                       </text>
                       <text x="260" y="379" textAnchor="middle" fill="#E2E8F0" fontSize="9.5" fontWeight="700" fontFamily="DM Mono, monospace">
-                        {dashMetrics.superFunnel[3]?.count || 0} cuentas ganadas · {dashMetrics.superFunnel[3]?.pct}% del pipeline
+                        {dashMetrics.superFunnel[3]?.totalCount || 0} cuenta ganada · {dashMetrics.superFunnel[3]?.pct}% win rate
                       </text>
                     </g>
 
@@ -2019,17 +2036,22 @@ export const MocModule: React.FC<MocModuleProps> = ({
                               {stageDisplayName}
                             </span>
                           </div>
-                          <div className="font-mono-tech text-xs font-bold text-[#0F2942]">
-                            {formatCurrency(step.value)}
+                          <div className="text-right font-mono-tech">
+                            <div className="text-xs font-bold text-[#0F2942]">
+                              {formatUSD(step.value)}
+                            </div>
+                            <div className="text-[9px] text-[#07B1C5] font-semibold">
+                              {formatEUR(step.value)}
+                            </div>
                           </div>
                         </div>
 
                         <div className="flex items-center justify-between font-mono-tech text-[9.5px] text-[#181B1E]/65 mb-2.5">
                           <span>
-                            {step.count} {step.count === 1 ? 'oportunidad' : 'oportunidades'} · <strong className="text-[#07B1C5]">{step.pct}% del total</strong>
+                            Flujo: <strong className="text-[#07B1C5]">{step.pct}% del total</strong> ({step.totalCount} cuentas) · En etapa: {step.count}
                           </span>
                           <span className="font-bold text-[#2F7F61]">
-                            {step.step === 1 ? '75% avance' : step.step === 2 ? '80% avance' : step.step === 3 ? '88% cierre' : '100% Ganada'}
+                            {step.step === 1 ? '100% entrada' : `${step.pct}% avance`}
                           </span>
                         </div>
 
@@ -2055,9 +2077,12 @@ export const MocModule: React.FC<MocModuleProps> = ({
                                   </div>
                                   <div className="text-right font-mono-tech shrink-0">
                                     <div className="font-bold text-xs text-[#07B1C5]">
-                                      {formatCurrency(d.estimatedValue || d.estimatedValueUsd || 0)}
+                                      {formatUSD(d.estimatedValue || d.estimatedValueUsd || 0)}
                                     </div>
-                                    <div className="text-[9.5px] text-[#181B1E]/60 font-semibold">
+                                    <div className="text-[9px] text-[#181B1E]/60 font-semibold">
+                                      {formatEUR(d.estimatedValue || d.estimatedValueUsd || 0)}
+                                    </div>
+                                    <div className="text-[9.5px] text-[#181B1E]/60 font-semibold mt-0.5">
                                       ⏱ {d.durationMonths || 12} meses
                                     </div>
                                   </div>
