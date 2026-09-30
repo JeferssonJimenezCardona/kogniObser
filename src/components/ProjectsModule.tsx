@@ -16,7 +16,6 @@ import {
   Layers,
   ArrowUpDown,
   Filter,
-  Percent,
   X,
   Calendar,
   AlertCircle,
@@ -30,6 +29,7 @@ import {
   Eye,
   User,
   UserPlus,
+  RotateCcw,
 } from 'lucide-react';
 import {
   ProjectActivity,
@@ -62,6 +62,7 @@ const STATUSES: TaskStatus[] = [
 ];
 
 const CLIENT_DEFAULT_PROJECT: Record<string, string> = {
+  'Kognia': 'Arquitectura Core, Automatización & Soluciones Internas Kognia',
   'Keralty': 'Plataforma de IA & Analítica Predictiva en Salud',
   'Enlace Operativo': 'Automatización & Motor de Liquidación de Seguridad Social',
   'Telepizza': 'Motor de Despacho Dinámico & Ruteo Inteligente',
@@ -93,7 +94,6 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
   const [activeTab, setActiveTab] = useState<ProjectViewTab>('tabla');
 
   // Shared Filters for Tabla, Kanban, and Gantt
-  const [searchQuery, setSearchQuery] = useState('');
   const [filterProject, setFilterProject] = useState('Todos');
   const [filterClient, setFilterClient] = useState('Todos');
   const [filterPerson, setFilterPerson] = useState('Todos');
@@ -489,18 +489,9 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
       const matchMonth =
         filterMonth === 'Todos' || (act.activeMonths && act.activeMonths.includes(filterMonth));
 
-      const q = searchQuery.trim().toLowerCase();
-      const matchSearch =
-        !q ||
-        act.activityTitle.toLowerCase().includes(q) ||
-        act.code.toLowerCase().includes(q) ||
-        act.client.toLowerCase().includes(q) ||
-        act.assignedPerson.toLowerCase().includes(q) ||
-        (act.taskDetails && act.taskDetails.toLowerCase().includes(q));
-
-      return matchProj && matchClient && matchPerson && matchStatus && matchMonth && matchSearch;
+      return matchProj && matchClient && matchPerson && matchStatus && matchMonth;
     });
-  }, [activities, filterProject, filterClient, filterPerson, filterStatus, filterMonth, searchQuery]);
+  }, [activities, filterProject, filterClient, filterPerson, filterStatus, filterMonth]);
 
   // Global Average Progress Calculation
   const averageProgress = useMemo(() => {
@@ -745,18 +736,6 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
       {activeTab !== 'capacidad' && (
         <div className="flex flex-col gap-2.5 rounded-xl bg-white border border-[#0F2942]/10 p-3 sm:flex-row sm:items-center sm:justify-between shadow-xs">
           <div className="flex flex-wrap items-center gap-2">
-            {/* Search */}
-            <div className="relative w-full sm:w-48">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-[#181B1E]/40" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar actividad, tarea..."
-                className="w-full rounded-md border border-[#0F2942]/15 bg-[#F3F0EB]/30 pl-7 pr-2.5 py-1 text-xs text-[#181B1E] focus:border-[#07B1C5] focus:outline-none"
-              />
-            </div>
-
             {/* Filter by Project */}
             <div className="flex items-center gap-1">
               <span className="font-mono-tech text-[10px] text-[#181B1E]/60">Proyecto:</span>
@@ -841,6 +820,28 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                 ))}
               </select>
             </div>
+
+            {(filterProject !== 'Todos' ||
+              filterClient !== 'Todos' ||
+              filterPerson !== 'Todos' ||
+              filterStatus !== 'Todos' ||
+              filterMonth !== 'Todos') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterProject('Todos');
+                  setFilterClient('Todos');
+                  setFilterPerson('Todos');
+                  setFilterStatus('Todos');
+                  setFilterMonth('Todos');
+                }}
+                className="flex items-center gap-1 font-mono-tech text-[10px] text-[#07B1C5] hover:text-[#0F2942] font-semibold transition-colors cursor-pointer px-1 py-1"
+                title="Limpiar filtros"
+              >
+                <RotateCcw className="h-3 w-3" />
+                <span>Restablecer</span>
+              </button>
+            )}
           </div>
 
           <button
@@ -1360,8 +1361,8 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
       ===================================================================== */}
       {activeTab === 'capacidad' && (
         <div className="space-y-3.5">
-          {/* Executive Header: Utilización Promedio + Filtros Profesionales Integrados */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 rounded-xl bg-white border border-[#0F2942]/10 p-4 shadow-xs">
+          {/* Executive Header: Utilización Promedio & Indicadores de Capacidad */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 rounded-xl bg-white border border-[#0F2942]/10 p-4 shadow-xs">
             {/* Left: Indicador de Utilización Promedio */}
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#0F2942] text-white shadow-xs">
@@ -1395,7 +1396,7 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                   <span className="font-mono-tech text-[11px] text-[#181B1E]/60">
                     en {visibleMonthColumns.length}{' '}
                     {visibleMonthColumns.length === 1 ? 'mes visualizado' : 'meses visualizados'} ·{' '}
-                    {sortedCapacityCollaborators.length} de {collaborators.length} colaboradores
+                    {collaborators.length} especialistas registrados
                   </span>
                 </div>
                 <div className="mt-1.5 h-1.5 w-48 sm:w-64 rounded-full bg-[#F3F0EB] overflow-hidden">
@@ -1413,27 +1414,125 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
               </div>
             </div>
 
-            {/* Right: Filtros Profesionales (Búsqueda, Periodo/Año/Mes, Nivel de Carga, Orden) */}
-            <div className="flex flex-wrap items-center gap-2 pt-2 lg:pt-0 border-t lg:border-t-0 border-[#0F2942]/8">
-              {/* Search */}
-              <div className="relative w-full sm:w-44">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#181B1E]/40" />
-                <input
-                  type="text"
-                  value={capacitySearch}
-                  onChange={(e) => setCapacitySearch(e.target.value)}
-                  placeholder="Buscar especialista..."
-                  className="w-full rounded-md border border-[#0F2942]/15 bg-[#F3F0EB]/30 pl-8 pr-2.5 py-1.5 text-xs text-[#181B1E] focus:border-[#07B1C5] focus:outline-none"
-                />
+            {/* Right: Resumen Rápido de Estados (Simétrico y Proporcional) */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-3 lg:pt-0 border-t lg:border-t-0 border-[#0F2942]/8">
+              <div className="flex flex-col items-center justify-center px-3 py-2 rounded-lg bg-red-50/70 border border-red-200/80 min-w-[95px]">
+                <span className="font-mono-tech text-base font-bold text-red-700">
+                  {capacityMetrics.overloadCount}
+                </span>
+                <span className="font-mono-tech text-[10px] text-red-600 font-semibold tracking-tight">
+                  Sobrecarga
+                </span>
+              </div>
+              <div className="flex flex-col items-center justify-center px-3 py-2 rounded-lg bg-amber-50/70 border border-amber-200/80 min-w-[95px]">
+                <span className="font-mono-tech text-base font-bold text-amber-700">
+                  {capacityMetrics.limitCount}
+                </span>
+                <span className="font-mono-tech text-[10px] text-amber-600 font-semibold tracking-tight">
+                  Al Límite
+                </span>
+              </div>
+              <div className="flex flex-col items-center justify-center px-3 py-2 rounded-lg bg-[#2F7F61]/10 border border-[#2F7F61]/25 min-w-[95px]">
+                <span className="font-mono-tech text-base font-bold text-[#2F7F61]">
+                  {capacityMetrics.availableCount}
+                </span>
+                <span className="font-mono-tech text-[10px] text-[#2F7F61] font-semibold tracking-tight">
+                  Con Margen
+                </span>
+              </div>
+              <div className="flex flex-col items-center justify-center px-3 py-2 rounded-lg bg-[#0F2942]/5 border border-[#0F2942]/10 min-w-[95px]">
+                <span className="font-mono-tech text-base font-bold text-[#0F2942]">
+                  {capacityMetrics.assignedHours}h
+                </span>
+                <span className="font-mono-tech text-[10px] text-[#181B1E]/60 font-semibold tracking-tight">
+                  de {capacityMetrics.totalHours}h
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Symmetrical Dedicated Filters Bar */}
+          <div className="rounded-xl bg-white border border-[#0F2942]/10 p-4 shadow-xs space-y-3">
+            {/* Toolbar Header: Título + Contador + Botón Limpiar */}
+            <div className="flex items-center justify-between border-b border-[#0F2942]/8 pb-2.5">
+              <div className="flex items-center gap-2">
+                <SlidersHorizontal className="h-4 w-4 text-[#07B1C5]" />
+                <span className="font-mono-tech text-xs font-bold uppercase tracking-wider text-[#0F2942]">
+                  Filtros de Capacidad &amp; Asignación
+                </span>
+                <span className="inline-flex items-center rounded-full bg-[#0F2942]/5 px-2 py-0.5 font-mono-tech text-[10px] font-semibold text-[#0F2942]">
+                  {sortedCapacityCollaborators.length} de {collaborators.length} especialistas visibles
+                </span>
               </div>
 
-              {/* Period / Year / Month Filter */}
-              <div className="flex items-center gap-1">
-                <span className="font-mono-tech text-[10px] text-[#181B1E]/60 font-semibold">Periodo:</span>
+              {(capacitySearch !== '' ||
+                capacityMonthFilter !== 'todos' ||
+                capacityAlertFilter !== 'todos' ||
+                capacitySortMode !== 'desc') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCapacitySearch('');
+                    setCapacityMonthFilter('todos');
+                    setCapacityAlertFilter('todos');
+                    setCapacitySortMode('desc');
+                  }}
+                  className="flex items-center gap-1.5 font-mono-tech text-[11px] font-semibold text-[#07B1C5] hover:text-[#0F2942] transition-colors cursor-pointer"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  <span>Restablecer Filtros</span>
+                </button>
+              )}
+            </div>
+
+            {/* Symmetrical 4-Column Grid: 4 Filtros Perfectamente Alineados */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* 1. Búsqueda */}
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 font-mono-tech text-[10px] uppercase font-bold text-[#181B1E]/60 tracking-wider">
+                  <Search className="h-3.5 w-3.5 text-[#07B1C5]" />
+                  <span>Buscar Especialista</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={capacitySearch}
+                    onChange={(e) => setCapacitySearch(e.target.value)}
+                    placeholder="Nombre o cargo..."
+                    className={`w-full h-9 rounded-lg border pl-3 pr-8 py-1.5 text-xs text-[#0F2942] transition-colors focus:outline-none ${
+                      capacitySearch.trim() !== ''
+                        ? 'border-[#07B1C5] bg-[#07B1C5]/[0.03] focus:border-[#07B1C5]'
+                        : 'border-[#0F2942]/15 bg-[#F3F0EB]/30 focus:border-[#07B1C5] focus:bg-white'
+                    }`}
+                  />
+                  {capacitySearch ? (
+                    <button
+                      type="button"
+                      onClick={() => setCapacitySearch('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#181B1E]/40 hover:text-[#0F2942] p-0.5 cursor-pointer"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  ) : (
+                    <Search className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#181B1E]/30" />
+                  )}
+                </div>
+              </div>
+
+              {/* 2. Periodo Temporal */}
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 font-mono-tech text-[10px] uppercase font-bold text-[#181B1E]/60 tracking-wider">
+                  <Calendar className="h-3.5 w-3.5 text-[#07B1C5]" />
+                  <span>Periodo Temporal</span>
+                </label>
                 <select
                   value={capacityMonthFilter}
                   onChange={(e) => setCapacityMonthFilter(e.target.value)}
-                  className="rounded-md border border-[#0F2942]/15 bg-[#F3F0EB]/30 px-2 py-1.5 font-mono-tech text-[11px] font-semibold text-[#0F2942] cursor-pointer focus:border-[#07B1C5] focus:outline-none"
+                  className={`w-full h-9 rounded-lg border px-3 py-1.5 font-mono-tech text-xs font-semibold text-[#0F2942] transition-colors cursor-pointer focus:outline-none ${
+                    capacityMonthFilter !== 'todos'
+                      ? 'border-[#07B1C5] bg-[#07B1C5]/[0.03] focus:border-[#07B1C5]'
+                      : 'border-[#0F2942]/15 bg-[#F3F0EB]/30 focus:border-[#07B1C5] focus:bg-white'
+                  }`}
                 >
                   <option value="todos">Todos los Meses (Matriz Global)</option>
                   <option value="year-2026">Año 2026 (Octubre - Diciembre)</option>
@@ -1448,9 +1547,12 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                 </select>
               </div>
 
-              {/* Workload Alert Filter */}
-              <div className="flex items-center gap-1">
-                <span className="font-mono-tech text-[10px] text-[#181B1E]/60 font-semibold">Carga:</span>
+              {/* 3. Nivel de Carga */}
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 font-mono-tech text-[10px] uppercase font-bold text-[#181B1E]/60 tracking-wider">
+                  <Activity className="h-3.5 w-3.5 text-[#07B1C5]" />
+                  <span>Nivel de Carga</span>
+                </label>
                 <select
                   value={capacityAlertFilter}
                   onChange={(e) =>
@@ -1458,26 +1560,37 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                       e.target.value as 'todos' | 'sobrecarga' | 'limite' | 'disponible'
                     )
                   }
-                  className="rounded-md border border-[#0F2942]/15 bg-[#F3F0EB]/30 px-2 py-1.5 font-mono-tech text-[11px] font-semibold text-[#0F2942] cursor-pointer focus:border-[#07B1C5] focus:outline-none"
+                  className={`w-full h-9 rounded-lg border px-3 py-1.5 font-mono-tech text-xs font-semibold text-[#0F2942] transition-colors cursor-pointer focus:outline-none ${
+                    capacityAlertFilter !== 'todos'
+                      ? 'border-[#07B1C5] bg-[#07B1C5]/[0.03] focus:border-[#07B1C5]'
+                      : 'border-[#0F2942]/15 bg-[#F3F0EB]/30 focus:border-[#07B1C5] focus:bg-white'
+                  }`}
                 >
                   <option value="todos">Todos los Estados</option>
                   <option value="sobrecarga">🔴 Sobrecarga (&gt;100%)</option>
-                  <option value="limite">🟠 Límite (85-100%)</option>
-                  <option value="disponible">🟢 Con Disponibilidad (&gt;15%)</option>
+                  <option value="limite">🟠 Al Límite (85% - 100%)</option>
+                  <option value="disponible">🟢 Con Margen (&lt;85%)</option>
                 </select>
               </div>
 
-              {/* Sorting Filter */}
-              <div className="flex items-center gap-1">
-                <span className="font-mono-tech text-[10px] text-[#181B1E]/60 font-semibold">Orden:</span>
+              {/* 4. Orden de Asignación */}
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 font-mono-tech text-[10px] uppercase font-bold text-[#181B1E]/60 tracking-wider">
+                  <ArrowUpDown className="h-3.5 w-3.5 text-[#07B1C5]" />
+                  <span>Criterio de Orden</span>
+                </label>
                 <select
                   value={capacitySortMode}
                   onChange={(e) => setCapacitySortMode(e.target.value as 'desc' | 'asc' | 'name')}
-                  className="rounded-md border border-[#0F2942]/15 bg-[#F3F0EB]/30 px-2 py-1.5 font-mono-tech text-[11px] font-semibold text-[#0F2942] cursor-pointer focus:border-[#07B1C5] focus:outline-none"
+                  className={`w-full h-9 rounded-lg border px-3 py-1.5 font-mono-tech text-xs font-semibold text-[#0F2942] transition-colors cursor-pointer focus:outline-none ${
+                    capacitySortMode !== 'desc'
+                      ? 'border-[#07B1C5] bg-[#07B1C5]/[0.03] focus:border-[#07B1C5]'
+                      : 'border-[#0F2942]/15 bg-[#F3F0EB]/30 focus:border-[#07B1C5] focus:bg-white'
+                  }`}
                 >
                   <option value="desc">↓ Mayor a Menor Carga</option>
                   <option value="asc">↑ Menor a Mayor Carga</option>
-                  <option value="name">Alfabético (A-Z)</option>
+                  <option value="name">Alfabético (A - Z)</option>
                 </select>
               </div>
             </div>
@@ -1873,7 +1986,7 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
 
                   {/* CAPACIDAD MENSUAL (COLOR SIMPLE Y ELEGANTE) */}
                   <div className="flex items-center gap-1.5 bg-[#0F2942] border border-[#0F2942] rounded-lg px-2.5 py-1 shadow-xs text-white">
-                    <Percent className="h-3.5 w-3.5 text-[#07B1C5]" />
+                    <TrendingUp className="h-3.5 w-3.5 text-[#07B1C5]" />
                     <span className="font-mono-tech text-[10px] font-bold uppercase tracking-wider">
                       Capacidad Mensual:
                     </span>
@@ -1882,10 +1995,6 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                     </span>
                   </div>
                 </div>
-
-                <p className="text-[11px] text-[#181B1E]/70 leading-tight">
-                  Puedes asignar <strong className="text-[#0F2942] font-semibold">uno o más colaboradores</strong> y fijar su respectivo <strong className="text-[#0F2942] font-semibold">% de asignación individual</strong>. La capacidad mensual promedio se calcula y sincroniza automáticamente.
-                </p>
 
                 {/* Lista interactiva de personas asignadas */}
                 <div className="space-y-2">
@@ -1919,14 +2028,11 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                         </select>
                       </div>
 
-                      {/* % Asignación Individual */}
+                      {/* Asignación Individual */}
                       <div className="w-full sm:w-[160px] shrink-0">
                         <div className="flex items-center justify-between mb-1">
-                          <span className="font-mono-tech text-[9px] font-bold text-[#0F2942] uppercase">
-                            % Asignación
-                          </span>
-                          <span className="font-mono-tech text-xs font-bold text-[#0F2942] bg-[#07B1C5]/10 border border-[#07B1C5]/25 px-1.5 py-0.2 rounded">
-                            {as.percent}%
+                          <span className="font-mono-tech text-[9px] font-bold text-[#0F2942] uppercase tracking-wide">
+                            Asignación
                           </span>
                         </div>
                         <div className="flex items-center gap-1.5">
@@ -1941,19 +2047,24 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                             }
                             className="flex-1 accent-[#07B1C5] cursor-pointer"
                           />
-                          <input
-                            type="number"
-                            min="5"
-                            max="100"
-                            step="5"
-                            value={as.percent}
-                            onChange={(e) =>
-                              handleUpdateAssigneeInForm(as.id, {
-                                percent: Math.max(5, Math.min(100, Number(e.target.value))),
-                              })
-                            }
-                            className="w-14 rounded border border-[#0F2942]/20 bg-[#F3F0EB]/30 px-1 py-0.5 text-center font-mono-tech text-xs font-bold text-[#0F2942] focus:outline-none focus:border-[#07B1C5]"
-                          />
+                          <div className="relative w-14 shrink-0">
+                            <input
+                              type="number"
+                              min="5"
+                              max="100"
+                              step="5"
+                              value={as.percent}
+                              onChange={(e) =>
+                                handleUpdateAssigneeInForm(as.id, {
+                                  percent: Math.max(5, Math.min(100, Number(e.target.value))),
+                                })
+                              }
+                              className="w-full rounded-md border border-[#0F2942]/20 bg-white pr-4 pl-1.5 py-1 text-center font-mono-tech text-xs font-bold text-[#0F2942] focus:outline-none focus:border-[#07B1C5] shadow-2xs"
+                            />
+                            <span className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 font-mono-tech text-[10px] font-bold text-[#0F2942]/60">
+                              %
+                            </span>
+                          </div>
                         </div>
                       </div>
 

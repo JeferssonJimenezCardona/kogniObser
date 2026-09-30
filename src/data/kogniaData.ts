@@ -325,6 +325,7 @@ export const PARTNERS = [
 ];
 
 export const CLIENT_COMPANIES = [
+  'Kognia',
   'Keralty',
   'Enlace Operativo',
   'Telepizza',

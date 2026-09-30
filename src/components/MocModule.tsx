@@ -102,13 +102,31 @@ export const MocModule: React.FC<MocModuleProps> = ({
   const [dashOwner, setDashOwner] = useState('Todos');
   const [dashSector, setDashSector] = useState('Todos');
 
-  // Currency formatter
+  // Currency formatters and exchange reference
+  const USD_TO_EUR_RATE = 0.92; // 1 USD ≈ 0.92 EUR
+
   const formatCurrency = (val: number, cur: string = 'USD') => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: cur || 'USD',
       maximumFractionDigits: 0,
     }).format(val || 0);
+  };
+
+  const formatUSD = (val: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: 0,
+    }).format(val || 0);
+  };
+
+  const formatEUR = (val: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'EUR',
+      maximumFractionDigits: 0,
+    }).format(Math.round((val || 0) * USD_TO_EUR_RATE));
   };
 
   // Default Form State
@@ -1629,35 +1647,122 @@ export const MocModule: React.FC<MocModuleProps> = ({
             </div>
           </div>
 
-          {/* Gerencial Metrics Summary Cards (Strictly No Forecast Ponderado, No MRR Proyectado) */}
+          {/* Gerencial Metrics Summary Cards (Dual Currency: USD & EUR en la misma tarjeta con línea divisoria y color sutil) */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div className="rounded-xl bg-white border border-[#0F2942]/10 p-3.5 shadow-xs">
-              <div className="font-mono-tech text-[10px] text-[#181B1E]/55 uppercase">PIPELINE TOTAL</div>
-              <div className="font-mono-tech text-xl font-bold text-[#0F2942] mt-0.5">
-                {formatCurrency(dashMetrics.totalPipeline)}
+            {/* Card 1: Pipeline Total */}
+            <div className="rounded-xl bg-white border border-[#0F2942]/10 shadow-xs overflow-hidden flex flex-col justify-between hover:border-[#0F2942]/25 transition-all">
+              {/* Sección Superior: Dólar (USD) */}
+              <div className="p-3.5 pb-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono-tech text-[10px] text-[#181B1E]/60 uppercase tracking-wider font-semibold">
+                    PIPELINE TOTAL
+                  </span>
+                  <span className="font-mono-tech text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#0F2942]/8 text-[#0F2942] uppercase tracking-wide">
+                    USD ($)
+                  </span>
+                </div>
+                <div className="font-mono-tech text-xl sm:text-2xl font-bold text-[#0F2942] mt-1">
+                  {formatUSD(dashMetrics.totalPipeline)}
+                </div>
+                <div className="font-mono-tech text-[10px] text-[#181B1E]/60 mt-0.5">
+                  {dashMetrics.dealsCount} oportunidades activas
+                </div>
               </div>
-              <div className="font-mono-tech text-[10px] text-[#181B1E]/60 mt-1">
-                {dashMetrics.dealsCount} oportunidades activas
+
+              {/* Separador con Línea y Sección Inferior con Color Sutil: Euro (EUR) */}
+              <div className="border-t border-[#0F2942]/10 bg-[#07B1C5]/[0.06] px-3.5 py-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono-tech text-[9.5px] text-[#181B1E]/65 uppercase font-medium">
+                    Equivalente en Euros
+                  </span>
+                  <span className="font-mono-tech text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#07B1C5]/15 text-[#0A6B7B] uppercase tracking-wide">
+                    EUR (€)
+                  </span>
+                </div>
+                <div className="font-mono-tech text-base sm:text-lg font-bold text-[#0A6B7B] mt-0.5">
+                  {formatEUR(dashMetrics.totalPipeline)}
+                </div>
+                <div className="font-mono-tech text-[9px] text-[#181B1E]/50 mt-0.5">
+                  Tasa ref: 1 USD ≈ 0.92 EUR
+                </div>
               </div>
             </div>
 
-            <div className="rounded-xl bg-white border border-[#0F2942]/10 p-3.5 shadow-xs">
-              <div className="font-mono-tech text-[10px] text-[#181B1E]/55 uppercase">VALOR GANADO</div>
-              <div className="font-mono-tech text-xl font-bold text-[#2F7F61] mt-0.5">
-                {formatCurrency(dashMetrics.wonValue)}
+            {/* Card 2: Valor Ganado */}
+            <div className="rounded-xl bg-white border border-[#2F7F61]/20 shadow-xs overflow-hidden flex flex-col justify-between hover:border-[#2F7F61]/40 transition-all">
+              {/* Sección Superior: Dólar (USD) */}
+              <div className="p-3.5 pb-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono-tech text-[10px] text-[#2F7F61]/80 uppercase tracking-wider font-semibold">
+                    VALOR GANADO
+                  </span>
+                  <span className="font-mono-tech text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#2F7F61]/10 text-[#2F7F61] uppercase tracking-wide">
+                    USD ($)
+                  </span>
+                </div>
+                <div className="font-mono-tech text-xl sm:text-2xl font-bold text-[#2F7F61] mt-1">
+                  {formatUSD(dashMetrics.wonValue)}
+                </div>
+                <div className="font-mono-tech text-[10px] text-[#2F7F61] mt-0.5">
+                  {dashMetrics.wonDealsCount} cuentas cerradas ({dashMetrics.winRate}% win rate)
+                </div>
               </div>
-              <div className="font-mono-tech text-[10px] text-[#2F7F61] mt-1">
-                {dashMetrics.wonDealsCount} cuentas cerradas ({dashMetrics.winRate}% win rate)
+
+              {/* Separador con Línea y Sección Inferior con Color Sutil: Euro (EUR) */}
+              <div className="border-t border-[#2F7F61]/15 bg-[#2F7F61]/[0.06] px-3.5 py-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono-tech text-[9.5px] text-[#181B1E]/65 uppercase font-medium">
+                    Equivalente en Euros
+                  </span>
+                  <span className="font-mono-tech text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#2F7F61]/15 text-[#24634B] uppercase tracking-wide">
+                    EUR (€)
+                  </span>
+                </div>
+                <div className="font-mono-tech text-base sm:text-lg font-bold text-[#24634B] mt-0.5">
+                  {formatEUR(dashMetrics.wonValue)}
+                </div>
+                <div className="font-mono-tech text-[9px] text-[#181B1E]/50 mt-0.5">
+                  Tasa ref: 1 USD ≈ 0.92 EUR
+                </div>
               </div>
             </div>
 
-            <div className="rounded-xl bg-white border border-[#0F2942]/10 p-3.5 shadow-xs">
-              <div className="font-mono-tech text-[10px] text-[#181B1E]/55 uppercase">TICKET PROMEDIO</div>
-              <div className="font-mono-tech text-xl font-bold text-[#0F2942] mt-0.5">
-                {formatCurrency(dashMetrics.avgTicket)}
+            {/* Card 3: Ticket Promedio */}
+            <div className="rounded-xl bg-white border border-[#0F2942]/10 shadow-xs overflow-hidden flex flex-col justify-between hover:border-[#0F2942]/25 transition-all">
+              {/* Sección Superior: Dólar (USD) */}
+              <div className="p-3.5 pb-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono-tech text-[10px] text-[#181B1E]/60 uppercase tracking-wider font-semibold">
+                    TICKET PROMEDIO
+                  </span>
+                  <span className="font-mono-tech text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#0F2942]/8 text-[#0F2942] uppercase tracking-wide">
+                    USD ($)
+                  </span>
+                </div>
+                <div className="font-mono-tech text-xl sm:text-2xl font-bold text-[#0F2942] mt-1">
+                  {formatUSD(dashMetrics.avgTicket)}
+                </div>
+                <div className="font-mono-tech text-[10px] text-[#07B1C5] font-semibold mt-0.5">
+                  Por oportunidad B2B
+                </div>
               </div>
-              <div className="font-mono-tech text-[10px] text-[#07B1C5] mt-1">
-                Por oportunidad B2B
+
+              {/* Separador con Línea y Sección Inferior con Color Sutil: Euro (EUR) */}
+              <div className="border-t border-[#0F2942]/10 bg-[#0F2942]/[0.03] px-3.5 py-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono-tech text-[9.5px] text-[#181B1E]/65 uppercase font-medium">
+                    Equivalente en Euros
+                  </span>
+                  <span className="font-mono-tech text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#0F2942]/10 text-[#0F2942] uppercase tracking-wide">
+                    EUR (€)
+                  </span>
+                </div>
+                <div className="font-mono-tech text-base sm:text-lg font-bold text-[#0F2942] mt-0.5">
+                  {formatEUR(dashMetrics.avgTicket)}
+                </div>
+                <div className="font-mono-tech text-[9px] text-[#181B1E]/50 mt-0.5">
+                  Tasa ref: 1 USD ≈ 0.92 EUR
+                </div>
               </div>
             </div>
           </div>
@@ -1701,7 +1806,7 @@ export const MocModule: React.FC<MocModuleProps> = ({
                     <span>Embudo de Conversión B2B</span>
                   </div>
                   <span className="font-mono-tech text-xs text-[#07B1C5] font-bold">
-                    Pipeline: {formatCurrency(dashMetrics.totalPipeline)}
+                    Pipeline: {formatUSD(dashMetrics.totalPipeline)} · {formatEUR(dashMetrics.totalPipeline)}
                   </span>
                 </div>
 
@@ -2002,7 +2107,7 @@ export const MocModule: React.FC<MocModuleProps> = ({
               </div>
 
               <div className="text-[10px] text-[#181B1E]/60">
-                Pipeline Total Depurado: <strong className="text-[#0F2942] font-bold">{formatCurrency(dashMetrics.totalPipeline)}</strong>
+                Pipeline Total Depurado: <strong className="text-[#0F2942] font-bold">{formatUSD(dashMetrics.totalPipeline)} · {formatEUR(dashMetrics.totalPipeline)}</strong>
               </div>
             </div>
           </div>
