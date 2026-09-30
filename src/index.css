@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --kognia-navy: #0F2942;
+    --kognia-cyan: #07B1C5;
+    --kognia-green: #2F7F61;
+    --kognia-cloud: #F3F0EB;
+    --kognia-black: #181B1E;
+    --font-display: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+
+  body {
+    font-family: var(--font-display);
+    background-color: #F3F0EB;
+    color: #181B1E;
+    letter-spacing: -0.01em;
+  }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: var(--font-display);
+    text-wrap: balance;
+  }
+
+  .font-mono-tech {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.kognia-sidebar-mesh {
+  background-color: #0B1E30;
+  background-image: 
+    radial-gradient(circle at 12% 18%, rgba(7, 177, 197, 0.12) 0%, transparent 48%),
+    radial-gradient(circle at 88% 82%, rgba(47, 127, 97, 0.14) 0%, transparent 52%),
+    linear-gradient(180deg, #0D2338 0%, #091826 100%);
+}
+
+.kognia-header-mesh {
+  background-color: #0F2942;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(7, 177, 197, 0.18) 0px, transparent 50%),
+    radial-gradient(at 95% 100%, rgba(47, 127, 97, 0.20) 0px, transparent 55%);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(15, 41, 66, 0.18);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(15, 41, 66, 0.32);
+}

@@ -1,0 +1,8 @@
+{
+  "name": "Nexus Enterprise Suite",
+  "description": "Professional, minimalist platform for streamlined client relationship management, project tracking, and resource capacity planning.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
