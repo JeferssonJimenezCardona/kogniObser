@@ -31,11 +31,24 @@ export type OpportunityType =
   | 'Renovación'
   | 'Licitación';
 
+export type CompanyCategory =
+  | 'Partner'
+  | 'Cliente - Emegia'
+  | 'Cliente Kognia';
+
+export const COMPANY_CATEGORIES: CompanyCategory[] = [
+  'Partner',
+  'Cliente - Emegia',
+  'Cliente Kognia',
+];
+
 export type ProjectContractType =
   | 'Proyecto Cerrado / Llave en mano'
   | 'Fee Mensual / Retainer'
   | 'Time & Materials / Bolsas de horas'
-  | 'Staff Augmentation';
+  | 'Staff Augmentation'
+  | 'Por Consumos'
+  | 'Por Tiers';
 
 export type PriorityLevel = 'Alta' | 'Media' | 'Baja';
 
@@ -108,6 +121,7 @@ export interface ClientOpportunity {
 
   // 1. Empresa, mercado y origen
   companyName: string; // Razón Social / Empresa (Obligatorio)
+  companyCategory?: CompanyCategory; // 'Partner' | 'Cliente - Emegia' | 'Cliente Kognia'
   taxId: string; // NIT / Tax ID
   country: string; // País (Lista)
   city: string; // Ciudad (Dependiente de país)
@@ -174,12 +188,19 @@ export interface ClientOpportunity {
 // -------------------------------------------------------------
 // Proyectos y Capacidad Mensual (Estructura de la Imagen)
 // -------------------------------------------------------------
-export type TaskStatus = 'Por Iniciar' | 'En Curso' | 'En Revisión' | 'Completado';
+export type TaskStatus = 'Por Iniciar' | 'En Curso' | 'En Revisión' | 'Atrasado' | 'Completado';
 
 export interface ActivityTask {
   id: string;
   title: string;
   completed: boolean;
+}
+
+export interface ActivityAssignee {
+  id: string;
+  person: string;
+  role: string;
+  percent: number;
 }
 
 export interface ProjectActivity {
@@ -194,7 +215,8 @@ export interface ProjectActivity {
   tasks: ActivityTask[]; // Checklist interactivo
   assignedPerson: string;
   assignedRole: string;
-  allocationPercent: number; // % asignación
+  allocationPercent: number; // % promedio de asignación
+  assignees?: ActivityAssignee[]; // Uno o más colaboradores con su respectivo %
   progressPercent: number; // % de avance (0% = Pendiente, 1-99% = En Curso, 100% = Completado)
   status: TaskStatus;
   startDate: string;
@@ -303,25 +325,15 @@ export const PARTNERS = [
 ];
 
 export const CLIENT_COMPANIES = [
-  'PetroAndina Exploración & Refinación',
-  'Banco Davinci Corporativo',
-  'TermoEnergía del Valle S.A. E.S.P.',
-  'Gasoductos del Norte & Caribe',
-  'Consorcio Minero Andino (CMA)',
-  'Fiducia & Seguros del Pacífico',
-  'Compañía Eléctrica Central',
-  'Grupo Nutresa Corporativo',
+  'Keralty',
+  'Enlace Operativo',
+  'Telepizza',
 ];
 
 export const SOLUTION_PRODUCTS = [
   'VOXI',
   'CHARLI',
   'SIDEKI',
-  'MLOps, Modelos Predictivos & GenAI',
-  'Databricks Lakehouse & Analytics',
-  'Automatización de Procesos & Control Avanzado',
-  'Gobernanza de Datos & PCI-DSS Security',
-  'Cloud Architecture & FinOps',
 ];
 
 export const CONTRACT_TYPES: ProjectContractType[] = [
@@ -329,6 +341,8 @@ export const CONTRACT_TYPES: ProjectContractType[] = [
   'Fee Mensual / Retainer',
   'Time & Materials / Bolsas de horas',
   'Staff Augmentation',
+  'Por Consumos',
+  'Por Tiers',
 ];
 
 export const STAGES: MocStage[] = [
@@ -360,66 +374,60 @@ export const INITIAL_CLIENTS: ClientOpportunity[] = [
     code: 'OPP-2026-01',
     createdAt: '2026-08-15',
     updatedAt: '2026-09-29',
-    companyName: 'PetroAndina Exploración & Refinación',
+    companyName: 'Keralty',
+    companyCategory: 'Cliente Kognia',
     taxId: '800.198.423-1',
     country: 'Colombia',
-    city: 'Barrancabermeja',
-    industry: 'Oil & Gas',
-    subsector: 'Upstream & Exploración',
-    leadSource: 'Licitación Privada / RFP',
-    leadSourceDetail: 'RFP Upstream Pozos No Convencionales 2026',
-    accountType: 'Nueva cuenta',
+    city: 'Bogotá',
+    industry: 'Salud & Pharma',
+    subsector: 'Servicios de Salud & Clínicas',
+    leadSource: 'Referido C-Level / Junta',
+    leadSourceDetail: 'Comité de Innovación y Transformación Digital Keralty',
+    accountType: 'Cliente actual',
     associatedPartner: 'AWS (Amazon Web Services)',
-    contactName: 'Ing. Carlos Hernando Duque',
-    contactRole: 'Gerente General de Operaciones Upstream',
-    contactEmail: 'cduque@petroandina-ep.com',
+    contactName: 'Dra. Carolina Méndez',
+    contactRole: 'Directora de Transformación Digital & Analítica',
+    contactEmail: 'cmendez@keralty.com',
     contactPhone: '+57 310 982 4410',
-    economicBuyer: 'Dra. Patricia Salamanca',
-    economicBuyerRole: 'VP de Finanzas & Abastecimiento',
-    internalSponsor: 'Ing. Carlos Hernando Duque',
+    economicBuyer: 'Dr. Roberto Esguerra',
+    economicBuyerRole: 'Vicepresidente de Operaciones Clínicas',
+    internalSponsor: 'Dra. Carolina Méndez',
     technicalInfluencer: 'Mateo Londoño (Kognia)',
     relationshipLevel: 'Relación activa',
-    opportunityName: 'Telemetría IoT en Pozos & Mantenimiento Predictivo',
-    description: 'Ingesta IoT de 42 pozos en campo, arquitectura streaming edge-to-cloud y algoritmos predictivos de cavitación y fallas mecánicas.',
-    solutionProducts: ['SIDEKI', 'MLOps, Modelos Predictivos & GenAI'],
+    opportunityName: 'Plataforma de IA & Analítica Predictiva en Salud',
+    description: 'Modelos predictivos de ocupación de camas de urgencias, triaje asistido y optimización de asignación de especialistas en clínicas.',
+    solutionProducts: ['VOXI', 'CHARLI'],
     projectType: 'Proyecto Cerrado / Llave en mano',
     estimatedValue: 285000,
     estimatedValueUsd: 285000,
     currency: 'USD',
-    mrr: 12000,
+    mrr: 14000,
     expectedCloseDate: '2026-10-25',
     startDate: '2026-11-01',
     durationMonths: 12,
     priority: 'Alta',
-    stage: 'Negociación',
-    probability: 80,
+    stage: 'Conversión',
+    probability: 100,
     owner: 'Camila Restrepo',
     techLead: 'Mateo Londoño',
-    nextAction: 'Reunión de homologación de pólizas de cumplimiento con el comité jurídico',
-    nextActionDone: false,
-    nextActionDate: '2026-10-08',
+    nextAction: 'Kick-off Sprint 1 e integración de conectores FHIR con sistemas hospitalarios',
+    nextActionDone: true,
+    nextActionDate: '2026-10-05',
     nextActionAssignee: 'Camila Restrepo',
     commitments: [
       {
         id: 'com-1-1',
-        description: 'Enviar anexos de ciberseguridad y certificaciones ISO 27001',
+        description: 'Entrega de arquitectura de seguridad y cumplimiento de normatividad en datos de salud',
         dueDate: '2026-10-02',
-        assignee: 'Juan Esteban Grateron',
+        assignee: 'Juan Esteban Grateron Nuñez',
         completed: true,
       },
       {
         id: 'com-1-2',
-        description: 'Reunión de homologación de pólizas de cumplimiento con el comité jurídico',
+        description: 'Kick-off técnico con el equipo de infraestructura de Keralty',
         dueDate: '2026-10-08',
         assignee: 'Camila Restrepo',
-        completed: false,
-      },
-      {
-        id: 'com-1-3',
-        description: 'Firma de minuta de contrato marco y kickoff preliminar',
-        dueDate: '2026-10-25',
-        assignee: 'Camila Restrepo',
-        completed: false,
+        completed: true,
       },
     ],
   },
@@ -428,28 +436,29 @@ export const INITIAL_CLIENTS: ClientOpportunity[] = [
     code: 'OPP-2026-02',
     createdAt: '2026-08-20',
     updatedAt: '2026-09-28',
-    companyName: 'Banco Davinci Corporativo',
+    companyName: 'Enlace Operativo',
+    companyCategory: 'Cliente - Emegia',
     taxId: '900.512.784-8',
     country: 'Colombia',
-    city: 'Bogotá',
+    city: 'Medellín',
     industry: 'Financiero & Fintech',
-    subsector: 'Banca Corporativa',
+    subsector: 'Operador de Información & Liquidación PILA',
     leadSource: 'Referido C-Level / Junta',
-    leadSourceDetail: 'Referencia directa de Miembro de Junta Directiva',
+    leadSourceDetail: 'Alianza Estratégica Sector Financiero y Seguridad Social',
     accountType: 'Cliente actual',
-    associatedPartner: 'Databricks',
+    associatedPartner: 'Microsoft Azure',
     contactName: 'Alejandro Valderrama',
-    contactRole: 'Chief Risk Officer (CRO)',
-    contactEmail: 'a.valderrama@davinci.com',
+    contactRole: 'Gerente de Tecnología & Operaciones',
+    contactEmail: 'a.valderrama@enlaceoperativo.com',
     contactPhone: '+57 312 405 1199',
-    economicBuyer: 'Alejandro Valderrama',
-    economicBuyerRole: 'Chief Risk Officer',
-    internalSponsor: 'Dr. Fernando Lleras',
-    technicalInfluencer: 'Andres Galindo Garcia',
+    economicBuyer: 'Dra. Patricia Salamanca',
+    economicBuyerRole: 'Vicepresidenta Corporativa',
+    internalSponsor: 'Alejandro Valderrama',
+    technicalInfluencer: 'Daniela Pineda',
     relationshipLevel: 'Sponsor',
-    opportunityName: 'Motor de Decisión Crediticia en Tiempo Real (<90ms)',
-    description: 'Modernización del pipeline de riesgo crediticio y scoring dinámico Pymes sobre arquitectura Lakehouse certificada PCI-DSS.',
-    solutionProducts: ['Databricks Lakehouse & Analytics', 'MLOps, Modelos Predictivos & GenAI'],
+    opportunityName: 'Automatización & Motor de Liquidación de Seguridad Social',
+    description: 'Modernización del pipeline de liquidación masiva de planillas PILA, validación de reglas de negocio en alta concurrencia y reconciliación bancaria.',
+    solutionProducts: ['CHARLI', 'SIDEKI'],
     projectType: 'Fee Mensual / Retainer',
     estimatedValue: 210000,
     estimatedValueUsd: 210000,
@@ -459,25 +468,25 @@ export const INITIAL_CLIENTS: ClientOpportunity[] = [
     startDate: '2026-11-20',
     durationMonths: 12,
     priority: 'Alta',
-    stage: 'Propuesta',
-    probability: 65,
+    stage: 'Negociación',
+    probability: 80,
     owner: 'Santiago Mendoza',
     techLead: 'Daniela Pineda',
-    nextAction: 'Demostración de PoC en sandbox controlado con 500k transacciones',
+    nextAction: 'Demostración de PoC de throughput para 2M de registros por hora',
     nextActionDone: true,
-    nextActionDate: '2026-10-05',
+    nextActionDate: '2026-10-10',
     nextActionAssignee: 'Daniela Pineda',
     commitments: [
       {
         id: 'com-2-1',
-        description: 'Demostración de PoC en sandbox controlado con 500k transacciones',
+        description: 'Demostración de benchmarks de procesamiento de planillas',
         dueDate: '2026-10-05',
         assignee: 'Daniela Pineda',
         completed: true,
       },
       {
         id: 'com-2-2',
-        description: 'Entrega de propuesta económica refinada con esquema de licenciamiento Databricks',
+        description: 'Entrega de propuesta económica y acuerdos de nivel de servicio (SLA)',
         dueDate: '2026-10-14',
         assignee: 'Santiago Mendoza',
         completed: false,
@@ -489,220 +498,59 @@ export const INITIAL_CLIENTS: ClientOpportunity[] = [
     code: 'OPP-2026-03',
     createdAt: '2026-07-10',
     updatedAt: '2026-09-25',
-    companyName: 'TermoEnergía del Valle S.A. E.S.P.',
+    companyName: 'Telepizza',
+    companyCategory: 'Partner',
     taxId: '890.312.901-2',
     country: 'Colombia',
-    city: 'Cali',
-    industry: 'Energía & Utilities',
-    subsector: 'Generación Térmica',
+    city: 'Bogotá',
+    industry: 'Retail & Consumo',
+    subsector: 'Quick Service Restaurants & Logística',
     leadSource: 'Alianza con Partner Cloud',
-    leadSourceDetail: 'Alianza Google Cloud Utilities',
-    accountType: 'Cliente actual',
+    leadSourceDetail: 'Iniciativa de Optimización Logística y Experiencia Omnicanal',
+    accountType: 'Nueva cuenta',
     associatedPartner: 'Google Cloud',
-    contactName: 'Dra. Marcela Echeverri',
-    contactRole: 'Directora de Despacho y Transmisión Eléctrica',
-    contactEmail: 'mecheverri@termovalle.com.co',
+    contactName: 'Ing. Javier Miró Quesada',
+    contactRole: 'Director de Logística & Cadena de Suministro',
+    contactEmail: 'jmiro@telepizza.com',
     contactPhone: '+57 318 640 2218',
-    economicBuyer: 'Ing. Rodrigo Holguín',
-    economicBuyerRole: 'Presidente Ejecutivo',
-    internalSponsor: 'Dra. Marcela Echeverri',
+    economicBuyer: 'Rodrigo Holguín',
+    economicBuyerRole: 'Managing Director Retail',
+    internalSponsor: 'Ing. Javier Miró Quesada',
     technicalInfluencer: 'Luis Pardo Fonseca',
     relationshipLevel: 'Relación activa',
-    opportunityName: 'Despacho Económico Predictivo & Optimización de Turbinas',
-    description: 'Modelo estocástico de optimización térmica y despacho para subasta diaria en el mercado mayorista XM.',
-    solutionProducts: ['Automatización de Procesos & Control Avanzado', 'MLOps, Modelos Predictivos & GenAI'],
+    opportunityName: 'Motor de Despacho Dinámico & Ruteo Inteligente',
+    description: 'Algoritmos de optimización de tiempos de entrega, predicción de demanda por punto de venta y asignación dinámica de repartidores.',
+    solutionProducts: ['VOXI', 'SIDEKI'],
     projectType: 'Proyecto Cerrado / Llave en mano',
     estimatedValue: 195000,
     estimatedValueUsd: 195000,
     currency: 'USD',
-    mrr: 8000,
-    expectedCloseDate: '2026-09-15',
-    startDate: '2026-09-20',
+    mrr: 12500,
+    expectedCloseDate: '2026-11-30',
+    startDate: '2026-12-05',
     durationMonths: 10,
     priority: 'Media',
-    stage: 'Conversión',
-    probability: 100,
-    owner: 'Camila Restrepo',
+    stage: 'Propuesta',
+    probability: 60,
+    owner: 'Laura Villamizar',
     techLead: 'Luis Pardo Fonseca',
-    nextAction: 'Kick-off Sprint 3 y entrega en ambiente de staging para ingenieros de despacho',
+    nextAction: 'Presentación de simulación de despacho en 20 tiendas del área metropolitana',
     nextActionDone: false,
-    nextActionDate: '2026-10-12',
+    nextActionDate: '2026-10-18',
     nextActionAssignee: 'Luis Pardo Fonseca',
     commitments: [
       {
         id: 'com-3-1',
-        description: 'Firma de acta de inicio y aprobación de arquitectura en Google Cloud',
-        dueDate: '2026-09-20',
-        assignee: 'Camila Restrepo',
+        description: 'Entrega de modelo de optimización de rutas con datos de prueba',
+        dueDate: '2026-10-10',
+        assignee: 'Luis Pardo Fonseca',
         completed: true,
       },
       {
         id: 'com-3-2',
-        description: 'Kick-off Sprint 3 y entrega en ambiente de staging para ingenieros de despacho',
-        dueDate: '2026-10-12',
-        assignee: 'Luis Pardo Fonseca',
-        completed: false,
-      },
-    ],
-  },
-  {
-    id: 'moc-4',
-    code: 'OPP-2026-04',
-    createdAt: '2026-09-01',
-    updatedAt: '2026-09-29',
-    companyName: 'Gasoductos del Norte & Caribe',
-    taxId: '805.992.110-4',
-    country: 'Estados Unidos',
-    city: 'Houston, TX',
-    industry: 'Oil & Gas',
-    subsector: 'Midstream & Transporte de Gas',
-    leadSource: 'Outbound Ejecutivo',
-    leadSourceDetail: 'Campaña ejecutiva Midstream Integrity USA',
-    accountType: 'Nueva cuenta',
-    associatedPartner: 'Microsoft Azure',
-    contactName: 'Robert Vance',
-    contactRole: 'VP of Midstream Asset Integrity',
-    contactEmail: 'rvance@gnc-pipeline.com',
-    contactPhone: '+1 713 550 4912',
-    economicBuyer: 'Robert Vance',
-    economicBuyerRole: 'VP of Asset Integrity',
-    internalSponsor: 'Sarah Jenkins',
-    technicalInfluencer: 'Luis Pardo Fonseca',
-    relationshipLevel: 'Contactado',
-    opportunityName: 'Detección Automatizada de Fugas por Presión Acústica',
-    description: 'Monitoreo de 850 km de troncal de gas mediante fibra óptica acústica y analítica computacional para integridad estructural.',
-    solutionProducts: ['VOXI', 'Databricks Lakehouse & Analytics'],
-    projectType: 'Proyecto Cerrado / Llave en mano',
-    estimatedValue: 340000,
-    estimatedValueUsd: 340000,
-    currency: 'USD',
-    mrr: 15000,
-    expectedCloseDate: '2026-12-10',
-    startDate: '2027-01-15',
-    durationMonths: 14,
-    priority: 'Alta',
-    stage: 'Discovery',
-    probability: 35,
-    owner: 'Laura Villamizar',
-    techLead: 'Mateo Londoño',
-    nextAction: 'Taller virtual de levantamiento de arquitectura de sensores SCADA actuales',
-    nextActionDone: false,
-    nextActionDate: '2026-10-15',
-    nextActionAssignee: 'Laura Villamizar',
-    commitments: [
-      {
-        id: 'com-4-1',
-        description: 'Taller virtual de levantamiento de arquitectura de sensores SCADA actuales',
-        dueDate: '2026-10-15',
-        assignee: 'Laura Villamizar',
-        completed: false,
-      },
-    ],
-  },
-  {
-    id: 'moc-5',
-    code: 'OPP-2026-05',
-    createdAt: '2026-08-10',
-    updatedAt: '2026-09-27',
-    companyName: 'Consorcio Minero Andino (CMA)',
-    taxId: '901.442.880-9',
-    country: 'Perú',
-    city: 'Arequipa',
-    industry: 'Minería & Metales',
-    subsector: 'Cobre & Concentrados',
-    leadSource: 'Referido C-Level / Junta',
-    leadSourceDetail: 'Alumni Harvard Business School',
-    accountType: 'Nueva cuenta',
-    associatedPartner: 'AWS (Amazon Web Services)',
-    contactName: 'Ing. Rodrigo Benavides',
-    contactRole: 'Superintendente de Automatización y Molienda',
-    contactEmail: 'rbenavides@cmaperu.pe',
-    contactPhone: '+51 984 210 933',
-    economicBuyer: 'Ing. Javier Miró Quesada',
-    economicBuyerRole: 'Gerente General de Mina',
-    internalSponsor: 'Ing. Rodrigo Benavides',
-    technicalInfluencer: 'Alejandro Giraldo Loaiza',
-    relationshipLevel: 'Relación activa',
-    opportunityName: 'Gemelo Digital de Molienda SAG & Control Avanzado',
-    description: 'Simulación metalúrgica en tiempo real para optimizar tonelaje procesado y rendimiento de molienda.',
-    solutionProducts: ['Automatización de Procesos & Control Avanzado', 'Databricks Lakehouse & Analytics'],
-    projectType: 'Proyecto Cerrado / Llave en mano',
-    estimatedValue: 220000,
-    estimatedValueUsd: 220000,
-    currency: 'USD',
-    mrr: 10000,
-    expectedCloseDate: '2026-11-30',
-    startDate: '2026-12-05',
-    durationMonths: 12,
-    priority: 'Alta',
-    stage: 'Propuesta',
-    probability: 55,
-    owner: 'Santiago Mendoza',
-    techLead: 'Alejandro Giraldo Loaiza',
-    nextAction: 'Visita técnica a faena minera en Arequipa para muestreo y calibración de telemetría',
-    nextActionDone: false,
-    nextActionDate: '2026-10-20',
-    nextActionAssignee: 'Alejandro Giraldo Loaiza',
-    commitments: [
-      {
-        id: 'com-5-1',
-        description: 'Visita técnica a faena minera en Arequipa para calibración de telemetría',
-        dueDate: '2026-10-20',
-        assignee: 'Alejandro Giraldo Loaiza',
-        completed: false,
-      },
-    ],
-  },
-  {
-    id: 'moc-6',
-    code: 'OPP-2026-06',
-    createdAt: '2026-08-25',
-    updatedAt: '2026-09-26',
-    companyName: 'Fiducia & Seguros del Pacífico',
-    taxId: '860.119.043-5',
-    country: 'Chile',
-    city: 'Santiago',
-    industry: 'Financiero & Fintech',
-    subsector: 'Seguros Generales & Vida',
-    leadSource: 'Inbound / Web Corporativa',
-    leadSourceDetail: 'Formulario web de contacto corporativo',
-    accountType: 'Nueva cuenta',
-    associatedPartner: 'Snowflake',
-    contactName: 'Catalina Gómez Lira',
-    contactRole: 'Gerente de Transformación e Inteligencia de Negocios',
-    contactEmail: 'cgomez@fiduciapacifico.cl',
-    contactPhone: '+56 9 7712 3301',
-    economicBuyer: 'Alonso Hurtado',
-    economicBuyerRole: 'Vicepresidente de Operaciones',
-    internalSponsor: 'Catalina Gómez Lira',
-    technicalInfluencer: 'Luis Pardo Fonseca',
-    relationshipLevel: 'Relación inicial',
-    opportunityName: 'Detección de Fraude en Siniestros con Grafos & IA',
-    description: 'Grafo de conocimiento para identificación de patrones colusivos entre asegurados, talleres y liquidadores.',
-    solutionProducts: ['MLOps, Modelos Predictivos & GenAI', 'Databricks Lakehouse & Analytics'],
-    projectType: 'Time & Materials / Bolsas de horas',
-    estimatedValue: 145000,
-    estimatedValueUsd: 145000,
-    currency: 'USD',
-    mrr: 6500,
-    expectedCloseDate: '2027-01-20',
-    startDate: '2027-02-01',
-    durationMonths: 6,
-    priority: 'Media',
-    stage: 'Discovery',
-    probability: 40,
-    owner: 'Laura Villamizar',
-    techLead: 'Daniela Pineda',
-    nextAction: 'Demo de análisis de grafos y visualización de nodos sospechosos con datos anonimizados',
-    nextActionDone: false,
-    nextActionDate: '2026-10-18',
-    nextActionAssignee: 'Daniela Pineda',
-    commitments: [
-      {
-        id: 'com-6-1',
-        description: 'Demo de análisis de grafos y visualización de nodos sospechosos con datos anonimizados',
+        description: 'Taller de integración con los sistemas POS y delivery de Telepizza',
         dueDate: '2026-10-18',
-        assignee: 'Daniela Pineda',
+        assignee: 'Laura Villamizar',
         completed: false,
       },
     ],
@@ -741,8 +589,8 @@ export const INITIAL_COLLABORATORS: CollaboratorCapacity[] = [
         isLimit: false,
         overloadPercent: 0,
         activities: [
-          { code: 'ACT-05', title: 'Gemelo Digital Molienda SAG', client: 'Consorcio Minero', hours: 90, allocationPercent: 48, status: 'En Curso' },
-          { code: 'ACT-07', title: 'Frontend Componentes de Telemetría', client: 'PetroAndina', hours: 60, allocationPercent: 33, status: 'Por Iniciar' },
+          { code: 'ACT-05', title: 'Gemelo Digital Molienda SAG', client: 'Telepizza', hours: 90, allocationPercent: 48, status: 'En Curso' },
+          { code: 'ACT-07', title: 'Frontend Componentes de Telemetría', client: 'Keralty', hours: 60, allocationPercent: 33, status: 'Por Iniciar' },
         ],
       },
       '2026-11': {
@@ -756,8 +604,8 @@ export const INITIAL_COLLABORATORS: CollaboratorCapacity[] = [
         isLimit: true,
         overloadPercent: 0,
         activities: [
-          { code: 'ACT-05', title: 'Gemelo Digital Molienda SAG', client: 'Consorcio Minero', hours: 100, allocationPercent: 54, status: 'En Curso' },
-          { code: 'ACT-07', title: 'Frontend Componentes de Telemetría', client: 'PetroAndina', hours: 60, allocationPercent: 32, status: 'En Curso' },
+          { code: 'ACT-05', title: 'Gemelo Digital Molienda SAG', client: 'Telepizza', hours: 100, allocationPercent: 54, status: 'En Curso' },
+          { code: 'ACT-07', title: 'Frontend Componentes de Telemetría', client: 'Keralty', hours: 60, allocationPercent: 32, status: 'En Curso' },
         ],
       },
       '2026-12': {
@@ -771,8 +619,8 @@ export const INITIAL_COLLABORATORS: CollaboratorCapacity[] = [
         isLimit: false,
         overloadPercent: 0,
         activities: [
-          { code: 'ACT-05', title: 'Gemelo Digital Molienda SAG', client: 'Consorcio Minero', hours: 70, allocationPercent: 38, status: 'En Revisión' },
-          { code: 'ACT-07', title: 'Pruebas Integrales UI', client: 'PetroAndina', hours: 40, allocationPercent: 21, status: 'Por Iniciar' },
+          { code: 'ACT-05', title: 'Gemelo Digital Molienda SAG', client: 'Telepizza', hours: 70, allocationPercent: 38, status: 'En Revisión' },
+          { code: 'ACT-07', title: 'Pruebas Integrales UI', client: 'Keralty', hours: 40, allocationPercent: 21, status: 'Por Iniciar' },
         ],
       },
       '2027-01': {
@@ -786,7 +634,7 @@ export const INITIAL_COLLABORATORS: CollaboratorCapacity[] = [
         isLimit: false,
         overloadPercent: 0,
         activities: [
-          { code: 'ACT-08', title: 'Soporte y Garantía Post-Lanzamiento', client: 'PetroAndina', hours: 60, allocationPercent: 32, status: 'Por Iniciar' },
+          { code: 'ACT-08', title: 'Soporte y Garantía Post-Lanzamiento', client: 'Keralty', hours: 60, allocationPercent: 32, status: 'Por Iniciar' },
         ],
       },
       '2027-02': {
@@ -800,7 +648,7 @@ export const INITIAL_COLLABORATORS: CollaboratorCapacity[] = [
         isLimit: false,
         overloadPercent: 0,
         activities: [
-          { code: 'ACT-09', title: 'Bolsa Soporte Molienda', client: 'Consorcio Minero', hours: 40, allocationPercent: 21, status: 'Por Iniciar' },
+          { code: 'ACT-09', title: 'Bolsa Soporte Molienda', client: 'Telepizza', hours: 40, allocationPercent: 21, status: 'Por Iniciar' },
         ],
       },
       '2027-03': {
@@ -839,8 +687,8 @@ export const INITIAL_COLLABORATORS: CollaboratorCapacity[] = [
         isLimit: false,
         overloadPercent: 0,
         activities: [
-          { code: 'ACT-03', title: 'Scoring <90ms Delivery & Scrum', client: 'Banco Davinci', hours: 85, allocationPercent: 46, status: 'En Curso' },
-          { code: 'ACT-04', title: 'Despacho Predictivo Coordinación', client: 'TermoEnergía', hours: 60, allocationPercent: 32, status: 'En Curso' },
+          { code: 'ACT-03', title: 'Scoring <90ms Delivery & Scrum', client: 'Enlace Operativo', hours: 85, allocationPercent: 46, status: 'En Curso' },
+          { code: 'ACT-04', title: 'Despacho Predictivo Coordinación', client: 'Telepizza', hours: 60, allocationPercent: 32, status: 'En Curso' },
         ],
       },
       '2026-11': {
@@ -854,8 +702,8 @@ export const INITIAL_COLLABORATORS: CollaboratorCapacity[] = [
         isLimit: false,
         overloadPercent: 0,
         activities: [
-          { code: 'ACT-03', title: 'Scoring <90ms Delivery & Scrum', client: 'Banco Davinci', hours: 95, allocationPercent: 51, status: 'En Curso' },
-          { code: 'ACT-04', title: 'Despacho Predictivo Coordinación', client: 'TermoEnergía', hours: 60, allocationPercent: 32, status: 'En Curso' },
+          { code: 'ACT-03', title: 'Scoring <90ms Delivery & Scrum', client: 'Enlace Operativo', hours: 95, allocationPercent: 51, status: 'En Curso' },
+          { code: 'ACT-04', title: 'Despacho Predictivo Coordinación', client: 'Telepizza', hours: 60, allocationPercent: 32, status: 'En Curso' },
         ],
       },
       '2026-12': {
@@ -869,8 +717,8 @@ export const INITIAL_COLLABORATORS: CollaboratorCapacity[] = [
         isLimit: false,
         overloadPercent: 0,
         activities: [
-          { code: 'ACT-03', title: 'Cierre Proyecto Scoring Davinci', client: 'Banco Davinci', hours: 60, allocationPercent: 32, status: 'En Revisión' },
-          { code: 'ACT-04', title: 'Entrega Fase 1 TermoEnergía', client: 'TermoEnergía', hours: 40, allocationPercent: 22, status: 'En Revisión' },
+          { code: 'ACT-03', title: 'Cierre Proyecto Scoring Enlace Operativo', client: 'Enlace Operativo', hours: 60, allocationPercent: 32, status: 'En Revisión' },
+          { code: 'ACT-04', title: 'Entrega Fase 1 Despacho Telepizza', client: 'Telepizza', hours: 40, allocationPercent: 22, status: 'En Revisión' },
         ],
       },
       '2027-01': {
@@ -884,7 +732,7 @@ export const INITIAL_COLLABORATORS: CollaboratorCapacity[] = [
         isLimit: false,
         overloadPercent: 0,
         activities: [
-          { code: 'ACT-10', title: 'Kickoff Gestión Gasoductos Norte', client: 'Gasoductos Norte', hours: 50, allocationPercent: 27, status: 'Por Iniciar' },
+          { code: 'ACT-10', title: 'Kickoff Gestión Gasoductos Norte', client: 'Enlace Operativo', hours: 50, allocationPercent: 27, status: 'Por Iniciar' },
         ],
       },
       '2027-02': {
@@ -898,7 +746,7 @@ export const INITIAL_COLLABORATORS: CollaboratorCapacity[] = [
         isLimit: false,
         overloadPercent: 0,
         activities: [
-          { code: 'ACT-10', title: 'Seguimiento Proyecto Gasoductos', client: 'Gasoductos Norte', hours: 80, allocationPercent: 43, status: 'Por Iniciar' },
+          { code: 'ACT-10', title: 'Seguimiento Proyecto Gasoductos', client: 'Enlace Operativo', hours: 80, allocationPercent: 43, status: 'Por Iniciar' },
         ],
       },
       '2027-03': {
@@ -912,7 +760,7 @@ export const INITIAL_COLLABORATORS: CollaboratorCapacity[] = [
         isLimit: false,
         overloadPercent: 0,
         activities: [
-          { code: 'ACT-10', title: 'Seguimiento Proyecto Gasoductos', client: 'Gasoductos Norte', hours: 80, allocationPercent: 43, status: 'Por Iniciar' },
+          { code: 'ACT-10', title: 'Seguimiento Proyecto Gasoductos', client: 'Enlace Operativo', hours: 80, allocationPercent: 43, status: 'Por Iniciar' },
         ],
       },
     },
@@ -939,8 +787,8 @@ export const INITIAL_COLLABORATORS: CollaboratorCapacity[] = [
         isLimit: false,
         overloadPercent: 0,
         activities: [
-          { code: 'ACT-01', title: 'Comité Arquitectura SCADA Pozos', client: 'PetroAndina', hours: 24, allocationPercent: 13, status: 'En Curso' },
-          { code: 'ACT-04', title: 'Validación Modelo Estocástico', client: 'TermoEnergía', hours: 30, allocationPercent: 16, status: 'En Curso' },
+          { code: 'ACT-01', title: 'Comité Arquitectura SCADA Pozos', client: 'Keralty', hours: 24, allocationPercent: 13, status: 'En Curso' },
+          { code: 'ACT-04', title: 'Validación Modelo Estocástico', client: 'Telepizza', hours: 30, allocationPercent: 16, status: 'En Curso' },
         ],
       },
       '2026-11': {
@@ -954,8 +802,8 @@ export const INITIAL_COLLABORATORS: CollaboratorCapacity[] = [
         isLimit: false,
         overloadPercent: 0,
         activities: [
-          { code: 'ACT-01', title: 'Homologación Seguridad Industrial', client: 'PetroAndina', hours: 20, allocationPercent: 11, status: 'En Curso' },
-          { code: 'ACT-04', title: 'Cierre Algorítmico XM', client: 'TermoEnergía', hours: 20, allocationPercent: 11, status: 'En Curso' },
+          { code: 'ACT-01', title: 'Homologación Seguridad Industrial', client: 'Keralty', hours: 20, allocationPercent: 11, status: 'En Curso' },
+          { code: 'ACT-04', title: 'Cierre Algorítmico XM', client: 'Telepizza', hours: 20, allocationPercent: 11, status: 'En Curso' },
         ],
       },
       '2026-12': {
@@ -969,7 +817,7 @@ export const INITIAL_COLLABORATORS: CollaboratorCapacity[] = [
         isLimit: false,
         overloadPercent: 0,
         activities: [
-          { code: 'ACT-06', title: 'Revisión Arquitectura Gasoductos', client: 'Gasoductos Norte', hours: 25, allocationPercent: 13, status: 'Por Iniciar' },
+          { code: 'ACT-06', title: 'Revisión Arquitectura Gasoductos', client: 'Enlace Operativo', hours: 25, allocationPercent: 13, status: 'Por Iniciar' },
         ],
       },
       '2027-01': {
@@ -983,7 +831,7 @@ export const INITIAL_COLLABORATORS: CollaboratorCapacity[] = [
         isLimit: false,
         overloadPercent: 0,
         activities: [
-          { code: 'ACT-06', title: 'Advisory Técnico C-Level', client: 'Gasoductos Norte', hours: 20, allocationPercent: 11, status: 'Por Iniciar' },
+          { code: 'ACT-06', title: 'Advisory Técnico C-Level', client: 'Enlace Operativo', hours: 20, allocationPercent: 11, status: 'Por Iniciar' },
         ],
       },
       '2027-02': {
@@ -1034,8 +882,8 @@ export const INITIAL_COLLABORATORS: CollaboratorCapacity[] = [
         isLimit: false,
         overloadPercent: 0,
         activities: [
-          { code: 'ACT-03', title: 'Hardening PCI-DSS Scoring Davinci', client: 'Banco Davinci', hours: 70, allocationPercent: 38, status: 'En Curso' },
-          { code: 'ACT-01', title: 'Certificación Ciberseguridad IoT', client: 'PetroAndina', hours: 50, allocationPercent: 27, status: 'En Curso' },
+          { code: 'ACT-03', title: 'Hardening PCI-DSS Scoring Davinci', client: 'Enlace Operativo', hours: 70, allocationPercent: 38, status: 'En Curso' },
+          { code: 'ACT-01', title: 'Certificación Ciberseguridad IoT', client: 'Keralty', hours: 50, allocationPercent: 27, status: 'En Curso' },
         ],
       },
       '2026-11': {
@@ -1049,8 +897,8 @@ export const INITIAL_COLLABORATORS: CollaboratorCapacity[] = [
         isLimit: false,
         overloadPercent: 0,
         activities: [
-          { code: 'ACT-03', title: 'Auditoría Forense y Encriptación', client: 'Banco Davinci', hours: 80, allocationPercent: 43, status: 'En Curso' },
-          { code: 'ACT-01', title: 'Penetration Testing SCADA', client: 'PetroAndina', hours: 50, allocationPercent: 27, status: 'En Curso' },
+          { code: 'ACT-03', title: 'Validación Forense y Encriptación', client: 'Enlace Operativo', hours: 80, allocationPercent: 43, status: 'En Curso' },
+          { code: 'ACT-01', title: 'Penetration Testing SCADA', client: 'Keralty', hours: 50, allocationPercent: 27, status: 'En Curso' },
         ],
       },
       '2026-12': {
@@ -1064,7 +912,7 @@ export const INITIAL_COLLABORATORS: CollaboratorCapacity[] = [
         isLimit: false,
         overloadPercent: 0,
         activities: [
-          { code: 'ACT-03', title: 'Dictamen de Ciberseguridad Bancaria', client: 'Banco Davinci', hours: 80, allocationPercent: 43, status: 'En Revisión' },
+          { code: 'ACT-03', title: 'Dictamen de Ciberseguridad Bancaria', client: 'Enlace Operativo', hours: 80, allocationPercent: 43, status: 'En Revisión' },
         ],
       },
       '2027-01': {
@@ -1078,7 +926,7 @@ export const INITIAL_COLLABORATORS: CollaboratorCapacity[] = [
         isLimit: false,
         overloadPercent: 0,
         activities: [
-          { code: 'ACT-11', title: 'Arquitectura Segura Gasoductos', client: 'Gasoductos Norte', hours: 60, allocationPercent: 32, status: 'Por Iniciar' },
+          { code: 'ACT-11', title: 'Arquitectura Segura Gasoductos', client: 'Enlace Operativo', hours: 60, allocationPercent: 32, status: 'Por Iniciar' },
         ],
       },
       '2027-02': {
@@ -1129,9 +977,9 @@ export const INITIAL_COLLABORATORS: CollaboratorCapacity[] = [
         isLimit: false,
         overloadPercent: 8,
         activities: [
-          { code: 'ACT-01', title: 'Arquitectura Ingesta Edge SCADA', client: 'PetroAndina', hours: 80, allocationPercent: 43, status: 'En Curso' },
-          { code: 'ACT-03', title: 'Pipeline Scoring <90ms', client: 'Banco Davinci', hours: 80, allocationPercent: 43, status: 'En Curso' },
-          { code: 'ACT-06', title: 'Sizing Databricks Clústeres', client: 'Banco Davinci', hours: 40, allocationPercent: 22, status: 'En Curso' },
+          { code: 'ACT-01', title: 'Arquitectura Ingesta Edge SCADA', client: 'Keralty', hours: 80, allocationPercent: 43, status: 'En Curso' },
+          { code: 'ACT-03', title: 'Pipeline Scoring <90ms', client: 'Enlace Operativo', hours: 80, allocationPercent: 43, status: 'En Curso' },
+          { code: 'ACT-06', title: 'Sizing Databricks Clústeres', client: 'Enlace Operativo', hours: 40, allocationPercent: 22, status: 'En Curso' },
         ],
       },
       '2026-11': {
@@ -1145,8 +993,8 @@ export const INITIAL_COLLABORATORS: CollaboratorCapacity[] = [
         isLimit: true,
         overloadPercent: 0,
         activities: [
-          { code: 'ACT-01', title: 'Pruebas Edge en Campo', client: 'PetroAndina', hours: 93, allocationPercent: 50, status: 'En Curso' },
-          { code: 'ACT-03', title: 'Load Testing Scoring Rust', client: 'Banco Davinci', hours: 93, allocationPercent: 50, status: 'En Curso' },
+          { code: 'ACT-01', title: 'Pruebas Edge en Campo', client: 'Keralty', hours: 93, allocationPercent: 50, status: 'En Curso' },
+          { code: 'ACT-03', title: 'Load Testing Scoring Rust', client: 'Enlace Operativo', hours: 93, allocationPercent: 50, status: 'En Curso' },
         ],
       },
       '2026-12': {
@@ -1160,8 +1008,8 @@ export const INITIAL_COLLABORATORS: CollaboratorCapacity[] = [
         isLimit: false,
         overloadPercent: 0,
         activities: [
-          { code: 'ACT-01', title: 'Handover Operativo Pozos', client: 'PetroAndina', hours: 65, allocationPercent: 35, status: 'En Revisión' },
-          { code: 'ACT-03', title: 'Puesta en Marcha Scoring', client: 'Banco Davinci', hours: 65, allocationPercent: 35, status: 'En Revisión' },
+          { code: 'ACT-01', title: 'Handover Operativo Pozos', client: 'Keralty', hours: 65, allocationPercent: 35, status: 'En Revisión' },
+          { code: 'ACT-03', title: 'Puesta en Marcha Scoring', client: 'Enlace Operativo', hours: 65, allocationPercent: 35, status: 'En Revisión' },
         ],
       },
       '2027-01': {
@@ -1175,7 +1023,7 @@ export const INITIAL_COLLABORATORS: CollaboratorCapacity[] = [
         isLimit: false,
         overloadPercent: 0,
         activities: [
-          { code: 'ACT-12', title: 'Preventa y Arquitectura Nueva', client: 'Fiducia Pacífico', hours: 70, allocationPercent: 38, status: 'Por Iniciar' },
+          { code: 'ACT-12', title: 'Preventa y Arquitectura Nueva', client: 'Keralty', hours: 70, allocationPercent: 38, status: 'Por Iniciar' },
         ],
       },
       '2027-02': {
@@ -1226,8 +1074,8 @@ export const INITIAL_COLLABORATORS: CollaboratorCapacity[] = [
         isLimit: false,
         overloadPercent: 5,
         activities: [
-          { code: 'ACT-02', title: 'Modelo Predictivo Cavitación Pozos', client: 'PetroAndina', hours: 100, allocationPercent: 54, status: 'En Curso' },
-          { code: 'ACT-03', title: 'Feature Store Bancario en Tiempo Real', client: 'Banco Davinci', hours: 95, allocationPercent: 51, status: 'En Curso' },
+          { code: 'ACT-02', title: 'Modelo Predictivo Cavitación Pozos', client: 'Keralty', hours: 100, allocationPercent: 54, status: 'En Curso' },
+          { code: 'ACT-03', title: 'Feature Store Bancario en Tiempo Real', client: 'Enlace Operativo', hours: 95, allocationPercent: 51, status: 'En Curso' },
         ],
       },
       '2026-11': {
@@ -1241,8 +1089,8 @@ export const INITIAL_COLLABORATORS: CollaboratorCapacity[] = [
         isLimit: true,
         overloadPercent: 0,
         activities: [
-          { code: 'ACT-02', title: 'Fine-Tuning Detección Desgaste', client: 'PetroAndina', hours: 95, allocationPercent: 51, status: 'En Curso' },
-          { code: 'ACT-03', title: 'Calibración Inferencia <90ms', client: 'Banco Davinci', hours: 80, allocationPercent: 43, status: 'En Curso' },
+          { code: 'ACT-02', title: 'Fine-Tuning Detección Desgaste', client: 'Keralty', hours: 95, allocationPercent: 51, status: 'En Curso' },
+          { code: 'ACT-03', title: 'Calibración Inferencia <90ms', client: 'Enlace Operativo', hours: 80, allocationPercent: 43, status: 'En Curso' },
         ],
       },
       '2026-12': {
@@ -1256,8 +1104,8 @@ export const INITIAL_COLLABORATORS: CollaboratorCapacity[] = [
         isLimit: false,
         overloadPercent: 0,
         activities: [
-          { code: 'ACT-02', title: 'Despliegue Modelo Producción', client: 'PetroAndina', hours: 60, allocationPercent: 32, status: 'En Revisión' },
-          { code: 'ACT-03', title: 'Validación Falsa Alarma Score', client: 'Banco Davinci', hours: 50, allocationPercent: 27, status: 'En Revisión' },
+          { code: 'ACT-02', title: 'Despliegue Modelo Producción', client: 'Keralty', hours: 60, allocationPercent: 32, status: 'En Revisión' },
+          { code: 'ACT-03', title: 'Validación Falsa Alarma Score', client: 'Enlace Operativo', hours: 50, allocationPercent: 27, status: 'En Revisión' },
         ],
       },
       '2027-01': {
@@ -1271,7 +1119,7 @@ export const INITIAL_COLLABORATORS: CollaboratorCapacity[] = [
         isLimit: false,
         overloadPercent: 0,
         activities: [
-          { code: 'ACT-13', title: 'Modelos de Grafos Fraude', client: 'Fiducia Pacífico', hours: 70, allocationPercent: 38, status: 'Por Iniciar' },
+          { code: 'ACT-13', title: 'Modelos de Grafos Fraude', client: 'Keralty', hours: 70, allocationPercent: 38, status: 'Por Iniciar' },
         ],
       },
       '2027-02': {
@@ -1285,7 +1133,7 @@ export const INITIAL_COLLABORATORS: CollaboratorCapacity[] = [
         isLimit: false,
         overloadPercent: 0,
         activities: [
-          { code: 'ACT-13', title: 'Modelos de Grafos Fraude', client: 'Fiducia Pacífico', hours: 90, allocationPercent: 48, status: 'Por Iniciar' },
+          { code: 'ACT-13', title: 'Modelos de Grafos Fraude', client: 'Keralty', hours: 90, allocationPercent: 48, status: 'Por Iniciar' },
         ],
       },
       '2027-03': {
@@ -1309,9 +1157,9 @@ export const INITIAL_ACTIVITIES: ProjectActivity[] = [
     id: 'act-101',
     code: 'ACT-01',
     projectId: 'prj-1',
-    projectName: 'Plataforma IoT & Telemetría en Pozos Upstream',
-    client: 'PetroAndina Exploración & Refinación',
-    activityTitle: 'Arquitectura de Ingesta Edge y Conexión SCADA Pozos',
+    projectName: 'Plataforma de IA & Analítica Predictiva en Salud',
+    client: 'Keralty',
+    activityTitle: 'Arquitectura de Ingesta & Conectividad Clínica Keralty',
     taskDetails: 'Configuración de gateways industriales OPC-UA y buffer local MQTT para pozos de difícil conectividad.',
     tasks: [
       { id: 't-101-1', title: 'Configurar gateways industriales OPC-UA en 12 pozos piloto', completed: true },
@@ -1320,7 +1168,11 @@ export const INITIAL_ACTIVITIES: ProjectActivity[] = [
     ],
     assignedPerson: 'Luis Pardo Fonseca',
     assignedRole: 'CEO & Principal Architect',
-    allocationPercent: 13,
+    allocationPercent: 25,
+    assignees: [
+      { id: 'as-101-1', person: 'Luis Pardo Fonseca', role: 'CEO & Principal Architect', percent: 20 },
+      { id: 'as-101-2', person: 'Daniela Pineda', role: 'Senior MLOps & Data Engineer', percent: 30 },
+    ],
     progressPercent: 65,
     status: 'En Curso',
     startDate: '2026-09-01',
@@ -1334,9 +1186,9 @@ export const INITIAL_ACTIVITIES: ProjectActivity[] = [
     id: 'act-102',
     code: 'ACT-02',
     projectId: 'prj-1',
-    projectName: 'Plataforma IoT & Telemetría en Pozos Upstream',
-    client: 'PetroAndina Exploración & Refinación',
-    activityTitle: 'Modelado Predictivo de Cavitación y Desgaste en Bombas',
+    projectName: 'Plataforma de IA & Analítica Predictiva en Salud',
+    client: 'Keralty',
+    activityTitle: 'Modelado Predictivo de Ocupación Hospitalaria & Urgencias',
     taskDetails: 'Entrenamiento de modelos con histórico de vibración y temperatura en turbomaquinaria.',
     tasks: [
       { id: 't-102-1', title: 'Limpieza y extracción de telemetría de vibración (2024-2026)', completed: true },
@@ -1346,6 +1198,9 @@ export const INITIAL_ACTIVITIES: ProjectActivity[] = [
     assignedPerson: 'Daniela Pineda',
     assignedRole: 'Senior MLOps & Data Engineer',
     allocationPercent: 54,
+    assignees: [
+      { id: 'as-102-1', person: 'Daniela Pineda', role: 'Senior MLOps & Data Engineer', percent: 54 },
+    ],
     progressPercent: 70,
     status: 'En Curso',
     startDate: '2026-10-01',
@@ -1359,9 +1214,9 @@ export const INITIAL_ACTIVITIES: ProjectActivity[] = [
     id: 'act-201',
     code: 'ACT-03',
     projectId: 'prj-2',
-    projectName: 'Motor de Riesgo Crediticio en Tiempo Real (<90ms)',
-    client: 'Banco Davinci Corporativo',
-    activityTitle: 'Pipeline de Scoring Online en Baja Latencia (<90ms)',
+    projectName: 'Automatización & Motor de Liquidación de Seguridad Social',
+    client: 'Enlace Operativo',
+    activityTitle: 'Pipeline de Procesamiento de Planillas PILA en Tiempo Real',
     taskDetails: 'Orquestación de microservicios Rust/Go para cálculo de variables financieras en caliente sobre Lakehouse.',
     tasks: [
       { id: 't-201-1', title: 'Diseño de microservicio Rust de cálculo de features', completed: true },
@@ -1370,7 +1225,11 @@ export const INITIAL_ACTIVITIES: ProjectActivity[] = [
     ],
     assignedPerson: 'Mateo Londoño',
     assignedRole: 'Principal Solutions Architect',
-    allocationPercent: 43,
+    allocationPercent: 40,
+    assignees: [
+      { id: 'as-201-1', person: 'Mateo Londoño', role: 'Principal Solutions Architect', percent: 45 },
+      { id: 'as-201-2', person: 'Andres Galindo Garcia', role: 'Delivery Manager', percent: 35 },
+    ],
     progressPercent: 75,
     status: 'En Curso',
     startDate: '2026-09-20',
@@ -1384,9 +1243,9 @@ export const INITIAL_ACTIVITIES: ProjectActivity[] = [
     id: 'act-202',
     code: 'ACT-04',
     projectId: 'prj-3',
-    projectName: 'Despacho Económico Predictivo & Turbinas',
-    client: 'TermoEnergía del Valle S.A. E.S.P.',
-    activityTitle: 'Algoritmo de Optimización Térmica y Subasta Diaria XM',
+    projectName: 'Automatización & Motor de Liquidación de Seguridad Social',
+    client: 'Enlace Operativo',
+    activityTitle: 'Validación Automática de Aportes & Dispersión Bancaria',
     taskDetails: 'Formulación estocástica y modelo de programación no lineal para maximizar margen marginal en mercado mayorista.',
     tasks: [
       { id: 't-202-1', title: 'Modelo estocástico de precios de gas y agua XM', completed: true },
@@ -1396,6 +1255,9 @@ export const INITIAL_ACTIVITIES: ProjectActivity[] = [
     assignedPerson: 'Andres Galindo Garcia',
     assignedRole: 'Delivery Manager',
     allocationPercent: 32,
+    assignees: [
+      { id: 'as-202-1', person: 'Andres Galindo Garcia', role: 'Delivery Manager', percent: 32 },
+    ],
     progressPercent: 100,
     status: 'Completado',
     startDate: '2026-09-25',
@@ -1409,9 +1271,9 @@ export const INITIAL_ACTIVITIES: ProjectActivity[] = [
     id: 'act-301',
     code: 'ACT-05',
     projectId: 'prj-4',
-    projectName: 'Gemelo Digital de Molienda SAG & Control Avanzado',
-    client: 'Consorcio Minero Andino (CMA)',
-    activityTitle: 'Simulador Metalúrgico en Tiempo Real y Telemetría',
+    projectName: 'Motor de Despacho Dinámico & Ruteo Inteligente',
+    client: 'Telepizza',
+    activityTitle: 'Simulador de Tiempos de Entrega & Asignación de Repartidores',
     taskDetails: 'Modelado fenomenológico del circuito de chancado y molienda autógena con retroalimentación en línea.',
     tasks: [
       { id: 't-301-1', title: 'Recolección de señales de potencia y granulometría', completed: false },
@@ -1419,7 +1281,11 @@ export const INITIAL_ACTIVITIES: ProjectActivity[] = [
     ],
     assignedPerson: 'Alejandro Giraldo Loaiza',
     assignedRole: 'Mid Full Stack Engineer',
-    allocationPercent: 48,
+    allocationPercent: 35,
+    assignees: [
+      { id: 'as-301-1', person: 'Alejandro Giraldo Loaiza', role: 'Mid Full Stack Engineer', percent: 48 },
+      { id: 'as-301-2', person: 'Mateo Londoño', role: 'Principal Solutions Architect', percent: 22 },
+    ],
     progressPercent: 0,
     status: 'Por Iniciar',
     startDate: '2026-10-01',
@@ -1428,5 +1294,33 @@ export const INITIAL_ACTIVITIES: ProjectActivity[] = [
     estimatedHours: 90,
     loggedHours: 0,
     activeMonths: ['2026-10', '2026-11', '2026-12'],
+  },
+  {
+    id: 'act-401',
+    code: 'ACT-06',
+    projectId: 'prj-5',
+    projectName: 'Motor de Despacho Dinámico & Ruteo Inteligente',
+    client: 'Telepizza',
+    activityTitle: 'Calibración de Algoritmo de Tiempos & Tracking de Tiendas',
+    taskDetails: 'Análisis de pulsos de presión transitoria con sensores IoT acústicos en tramos de 80km.',
+    tasks: [
+      { id: 't-401-1', title: 'Calibración de transductores piezorresistivos', completed: true },
+      { id: 't-401-2', title: 'Adquisición de firmas de presión en válvulas de bloqueo', completed: false },
+      { id: 't-401-3', title: 'Entregable de reporte de desbalance volumétrico', completed: false },
+    ],
+    assignedPerson: 'Mateo Londoño',
+    assignedRole: 'Principal Solutions Architect',
+    allocationPercent: 35,
+    assignees: [
+      { id: 'as-401-1', person: 'Mateo Londoño', role: 'Principal Solutions Architect', percent: 35 },
+    ],
+    progressPercent: 30,
+    status: 'Atrasado',
+    startDate: '2026-08-15',
+    endDate: '2026-09-25',
+    additionalDate: '2026-09-20',
+    estimatedHours: 85,
+    loggedHours: 45,
+    activeMonths: ['2026-09', '2026-10'],
   },
 ];

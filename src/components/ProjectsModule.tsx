@@ -28,11 +28,14 @@ import {
   TrendingUp,
   Activity,
   Eye,
+  User,
+  UserPlus,
 } from 'lucide-react';
 import {
   ProjectActivity,
   TaskStatus,
   ActivityTask,
+  ActivityAssignee,
   CollaboratorCapacity,
   MONTH_COLUMNS,
   INITIAL_COLLABORATORS,
@@ -54,12 +57,20 @@ const STATUSES: TaskStatus[] = [
   'Por Iniciar',
   'En Curso',
   'En Revisión',
+  'Atrasado',
   'Completado',
 ];
+
+const CLIENT_DEFAULT_PROJECT: Record<string, string> = {
+  'Keralty': 'Plataforma de IA & Analítica Predictiva en Salud',
+  'Enlace Operativo': 'Automatización & Motor de Liquidación de Seguridad Social',
+  'Telepizza': 'Motor de Despacho Dinámico & Ruteo Inteligente',
+};
 
 // Timeline headers for Gantt
 const GANTT_START = new Date('2026-08-01T00:00:00').getTime();
 const GANTT_END = new Date('2027-03-31T00:00:00').getTime();
+const GANTT_CURRENT_DATE = new Date('2026-09-29T12:00:00').getTime();
 const GANTT_MONTH_HEADERS = [
   'Ago 26',
   'Sep 26',
@@ -106,12 +117,15 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
 
   // Form State
   const initialFormState = {
-    projectName: 'Plataforma IoT & Telemetría en Pozos Upstream',
-    client: CLIENT_COMPANIES[0] || 'PetroAndina Exploración & Refinación',
+    projectName: 'Plataforma de IA & Analítica Predictiva en Salud',
+    client: CLIENT_COMPANIES[0] || 'Keralty',
     activityTitle: '',
     taskDetails: '',
     assignedPerson: 'Mateo Londoño',
-    allocationPercent: 40,
+    allocationPercent: 35,
+    assignees: [
+      { id: 'as-new-1', person: 'Mateo Londoño', role: 'Principal Solutions Architect', percent: 35 },
+    ] as ActivityAssignee[],
     progressPercent: 0,
     status: 'Por Iniciar' as TaskStatus,
     startDate: '2026-10-15',
@@ -134,7 +148,12 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
   // Open Add Modal
   const handleOpenAdd = () => {
     setEditingActivityId(null);
-    setFormData(initialFormState);
+    setFormData({
+      ...initialFormState,
+      assignees: [
+        { id: `as-new-${Date.now()}`, person: 'Mateo Londoño', role: 'Principal Solutions Architect', percent: 35 },
+      ],
+    });
     setNewTaskInput('');
     setIsModalOpen(true);
   };
@@ -142,13 +161,36 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
   // Open Edit Modal
   const handleOpenEdit = (act: ProjectActivity) => {
     setEditingActivityId(act.id);
+    const resolvedAssignees: ActivityAssignee[] =
+      act.assignees && act.assignees.length > 0
+        ? act.assignees.map((as, i) => ({
+            id: as.id || `as-edit-${i}-${Date.now()}`,
+            person: as.person,
+            role: as.role || collaborators.find((c) => c.name === as.person)?.role || 'Technical Specialist',
+            percent: as.percent,
+          }))
+        : [
+            {
+              id: `as-${Date.now()}`,
+              person: act.assignedPerson || 'Mateo Londoño',
+              role: act.assignedRole || 'Principal Solutions Architect',
+              percent: act.allocationPercent || 35,
+            },
+          ];
+
+    const avgAllocation = Math.round(
+      resolvedAssignees.reduce((acc, a) => acc + (Number(a.percent) || 0), 0) /
+        (resolvedAssignees.length || 1)
+    );
+
     setFormData({
       projectName: act.projectName,
       client: act.client,
       activityTitle: act.activityTitle,
       taskDetails: act.taskDetails || '',
-      assignedPerson: act.assignedPerson,
-      allocationPercent: act.allocationPercent,
+      assignedPerson: resolvedAssignees.map((a) => a.person).join(', '),
+      allocationPercent: avgAllocation,
+      assignees: resolvedAssignees,
       progressPercent: act.progressPercent ?? (act.status === 'Completado' ? 100 : act.status === 'Por Iniciar' ? 0 : 50),
       status: act.status,
       startDate: act.startDate,
@@ -166,6 +208,64 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
     });
     setNewTaskInput('');
     setIsModalOpen(true);
+  };
+
+  // Assignees management in Form
+  const handleAddAssigneeToForm = () => {
+    const assignedNames = formData.assignees.map((a) => a.person);
+    const available =
+      collaborators.find((c) => !assignedNames.includes(c.name)) || collaborators[0];
+    const newAssignee: ActivityAssignee = {
+      id: `as-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+      person: available.name,
+      role: available.role,
+      percent: 30,
+    };
+    const updatedAssignees = [...formData.assignees, newAssignee];
+    const avg = Math.round(
+      updatedAssignees.reduce((acc, a) => acc + (Number(a.percent) || 0), 0) / updatedAssignees.length
+    );
+    setFormData((prev) => ({
+      ...prev,
+      assignees: updatedAssignees,
+      assignedPerson: updatedAssignees.map((a) => a.person).join(', '),
+      allocationPercent: avg,
+    }));
+  };
+
+  const handleUpdateAssigneeInForm = (id: string, updates: Partial<ActivityAssignee>) => {
+    const updatedAssignees = formData.assignees.map((a) => {
+      if (a.id !== id) return a;
+      const updated = { ...a, ...updates };
+      if (updates.person) {
+        const found = collaborators.find((c) => c.name === updates.person);
+        if (found) updated.role = found.role;
+      }
+      return updated;
+    });
+    const avg = Math.round(
+      updatedAssignees.reduce((acc, a) => acc + (Number(a.percent) || 0), 0) / (updatedAssignees.length || 1)
+    );
+    setFormData((prev) => ({
+      ...prev,
+      assignees: updatedAssignees,
+      assignedPerson: updatedAssignees.map((a) => a.person).join(', '),
+      allocationPercent: avg,
+    }));
+  };
+
+  const handleRemoveAssigneeInForm = (id: string) => {
+    if (formData.assignees.length <= 1) return;
+    const updatedAssignees = formData.assignees.filter((a) => a.id !== id);
+    const avg = Math.round(
+      updatedAssignees.reduce((acc, a) => acc + (Number(a.percent) || 0), 0) / (updatedAssignees.length || 1)
+    );
+    setFormData((prev) => ({
+      ...prev,
+      assignees: updatedAssignees,
+      assignedPerson: updatedAssignees.map((a) => a.person).join(', '),
+      allocationPercent: avg,
+    }));
   };
 
   // Calculate Status from Progress %
@@ -273,9 +373,30 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
   // Save (Create or Edit)
   const handleSubmitForm = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.activityTitle.trim()) return;
+    if (!formData.projectName.trim()) return;
 
-    const personObj = collaborators.find((m) => m.name === formData.assignedPerson);
+    const resolvedAssignees =
+      formData.assignees && formData.assignees.length > 0
+        ? formData.assignees
+        : [
+            {
+              id: `as-${Date.now()}`,
+              person: 'Mateo Londoño',
+              role: 'Principal Solutions Architect',
+              percent: 35,
+            },
+          ];
+
+    const avgAllocation = Math.round(
+      resolvedAssignees.reduce((acc, a) => acc + (Number(a.percent) || 0), 0) /
+        resolvedAssignees.length
+    );
+    const summaryPerson = resolvedAssignees.map((a) => a.person).join(', ');
+    const primaryRole =
+      resolvedAssignees.length > 1
+        ? 'Equipo Multidisciplinario'
+        : resolvedAssignees[0]?.role || 'Technical Specialist';
+    const resolvedTitle = formData.projectName.trim();
 
     if (editingActivityId) {
       const existing = activities.find((a) => a.id === editingActivityId);
@@ -283,14 +404,15 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
         id: editingActivityId,
         code: existing?.code || `ACT-${String(activities.length).padStart(2, '0')}`,
         projectId: existing?.projectId || `prj-${Date.now()}`,
-        projectName: formData.projectName,
+        projectName: formData.projectName.trim(),
         client: formData.client,
-        activityTitle: formData.activityTitle.trim(),
+        activityTitle: resolvedTitle,
         taskDetails: formData.taskDetails.trim() || formData.tasks.map((t) => t.title).join(' · '),
         tasks: formData.tasks,
-        assignedPerson: formData.assignedPerson,
-        assignedRole: personObj?.role || existing?.assignedRole || 'Technical Specialist',
-        allocationPercent: Number(formData.allocationPercent) || 30,
+        assignedPerson: summaryPerson,
+        assignedRole: primaryRole,
+        allocationPercent: avgAllocation,
+        assignees: resolvedAssignees,
         progressPercent: Number(formData.progressPercent) || 0,
         status: formData.status,
         startDate: formData.startDate,
@@ -307,14 +429,15 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
         id: `act-${Date.now()}`,
         code: nextCode,
         projectId: `prj-${Date.now()}`,
-        projectName: formData.projectName,
+        projectName: formData.projectName.trim(),
         client: formData.client,
-        activityTitle: formData.activityTitle.trim(),
+        activityTitle: resolvedTitle,
         taskDetails: formData.taskDetails.trim() || formData.tasks.map((t) => t.title).join(' · '),
         tasks: formData.tasks,
-        assignedPerson: formData.assignedPerson,
-        assignedRole: personObj?.role || 'Technical Specialist',
-        allocationPercent: Number(formData.allocationPercent) || 30,
+        assignedPerson: summaryPerson,
+        assignedRole: primaryRole,
+        allocationPercent: avgAllocation,
+        assignees: resolvedAssignees,
         progressPercent: Number(formData.progressPercent) || 0,
         status: formData.status,
         startDate: formData.startDate,
@@ -358,7 +481,10 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
     return activities.filter((act) => {
       const matchProj = filterProject === 'Todos' || act.projectName === filterProject;
       const matchClient = filterClient === 'Todos' || act.client === filterClient;
-      const matchPerson = filterPerson === 'Todos' || act.assignedPerson === filterPerson;
+      const matchPerson =
+        filterPerson === 'Todos' ||
+        act.assignedPerson === filterPerson ||
+        (act.assignees && act.assignees.some((as) => as.person === filterPerson));
       const matchStatus = filterStatus === 'Todos' || act.status === filterStatus;
       const matchMonth =
         filterMonth === 'Todos' || (act.activeMonths && act.activeMonths.includes(filterMonth));
@@ -723,7 +849,7 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
             className="inline-flex items-center gap-1.5 rounded-lg bg-[#0F2942] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#0F2942]/90 transition-colors cursor-pointer shadow-xs self-start sm:self-auto shrink-0"
           >
             <Plus className="h-3.5 w-3.5 text-[#07B1C5]" />
-            <span>Registrar Actividad</span>
+            <span>Registrar Proyecto</span>
           </button>
         </div>
       )}
@@ -740,8 +866,7 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                   <th className="py-2.5 pl-4 pr-2 font-medium">Cód.</th>
                   <th className="px-2.5 py-2.5 font-medium">Actividad &amp; Proyecto</th>
                   <th className="px-2.5 py-2.5 font-medium">Cliente (Cuenta)</th>
-                  <th className="px-2.5 py-2.5 font-medium">A Quién Asigno</th>
-                  <th className="px-2.5 py-2.5 font-medium text-center">% Asignación</th>
+                  <th className="px-3 py-2.5 font-medium">A Quién Asigno</th>
                   <th className="px-2.5 py-2.5 font-medium text-center w-[130px]">% Avance</th>
                   <th className="px-2.5 py-2.5 font-medium">Fechas &amp; Fecha Entrega</th>
                   <th className="px-2.5 py-2.5 font-medium text-center">Estado</th>
@@ -781,41 +906,39 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                         </div>
                       </td>
 
-                      {/* Assignee */}
-                      <td className="px-2.5 py-2.5 whitespace-nowrap">
-                        <div className="font-semibold text-[11px] text-[#0F2942] truncate">
-                          {act.assignedPerson}
-                        </div>
-                        <div className="font-mono-tech text-[9px] text-[#181B1E]/55">
-                          {act.assignedRole}
-                        </div>
-                      </td>
-
-                      {/* % Asignación */}
-                      <td className="px-2.5 py-2.5 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                        <div className="inline-flex items-center gap-1 rounded bg-[#0F2942]/5 border border-[#0F2942]/10 px-1.5 py-0.5">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              onUpdateAllocation(act.id, Math.max(5, act.allocationPercent - 5))
-                            }
-                            className="h-4 w-4 rounded bg-white text-[10px] font-bold text-[#0F2942] hover:bg-[#0F2942] hover:text-white transition-colors cursor-pointer"
-                          >
-                            -
-                          </button>
-                          <span className="w-8 text-center font-mono-tech text-[10px] font-bold text-[#0F2942]">
-                            {act.allocationPercent}%
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              onUpdateAllocation(act.id, Math.min(100, act.allocationPercent + 5))
-                            }
-                            className="h-4 w-4 rounded bg-white text-[10px] font-bold text-[#0F2942] hover:bg-[#0F2942] hover:text-white transition-colors cursor-pointer"
-                          >
-                            +
-                          </button>
-                        </div>
+                      {/* Assignee (1 o más colaboradores con su respectivo %) */}
+                      <td className="px-3 py-2.5">
+                        {act.assignees && act.assignees.length > 0 ? (
+                          <div className="space-y-1.5">
+                            {act.assignees.map((as) => (
+                              <div key={as.id} className="flex items-center justify-between gap-2 max-w-[220px]">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0F2942]/10 text-[9px] font-bold text-[#0F2942]">
+                                    {as.person.split(' ').map((n) => n[0]).slice(0, 2).join('')}
+                                  </div>
+                                  <span className="font-semibold text-xs text-[#0F2942] truncate" title={`${as.person} (${as.role})`}>
+                                    {as.person}
+                                  </span>
+                                </div>
+                                <span
+                                  className="shrink-0 font-mono-tech text-[10px] font-bold text-[#0F2942] bg-[#F3F0EB] border border-[#0F2942]/15 px-1.5 py-0.5 rounded shadow-2xs"
+                                  title={`Asignación individual de ${as.person}: ${as.percent}%`}
+                                >
+                                  {as.percent}%
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div>
+                            <div className="font-semibold text-[11px] text-[#0F2942] truncate">
+                              {act.assignedPerson}
+                            </div>
+                            <div className="font-mono-tech text-[9px] text-[#181B1E]/55">
+                              {act.assignedRole}
+                            </div>
+                          </div>
+                        )}
                       </td>
 
                       {/* % Avance (0% = Pendiente, 1-99% = En Curso, 100% = Completado) */}
@@ -826,6 +949,8 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                               className={`font-bold ${
                                 isDone
                                   ? 'text-[#2F7F61]'
+                                  : act.status === 'Atrasado'
+                                  ? 'text-red-600'
                                   : isPending
                                   ? 'text-[#181B1E]/50'
                                   : 'text-[#07B1C5]'
@@ -834,7 +959,7 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                               {act.progressPercent || 0}%
                             </span>
                             <span className="text-[8px] opacity-60">
-                              {isDone ? 'Hecho' : isPending ? 'Pendiente' : 'En proceso'}
+                              {isDone ? 'Hecho' : act.status === 'Atrasado' ? 'Atrasado' : isPending ? 'Pendiente' : 'En proceso'}
                             </span>
                           </div>
                           <div className="h-1.5 w-full rounded-full bg-[#F3F0EB] overflow-hidden">
@@ -844,6 +969,8 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                                 width: `${act.progressPercent || 0}%`,
                                 backgroundColor: isDone
                                   ? '#2F7F61'
+                                  : act.status === 'Atrasado'
+                                  ? '#EF4444'
                                   : isPending
                                   ? '#CBD5E1'
                                   : '#07B1C5',
@@ -875,6 +1002,8 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                           className={`rounded border px-2 py-0.5 font-mono-tech text-[10px] font-medium transition-colors cursor-pointer ${
                             isDone
                               ? 'bg-[#2F7F61]/12 border-[#2F7F61]/40 text-[#2F7F61]'
+                              : act.status === 'Atrasado'
+                              ? 'bg-red-50 border-red-300 text-red-700 font-bold'
                               : act.status === 'En Curso'
                               ? 'bg-[#07B1C5]/15 border-[#07B1C5]/40 text-[#0F2942]'
                               : 'bg-[#0F2942]/6 border-[#0F2942]/15 text-[#0F2942]'
@@ -929,7 +1058,7 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
           2. KANBAN (CON CHECKLIST, AVANCE Y ACCIÓN DE EDITAR/ELIMINAR)
       ===================================================================== */}
       {activeTab === 'kanban' && (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4 items-start">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 items-start">
           {STATUSES.map((status, colIdx) => {
             const colActs = filteredActivities.filter((a) => a.status === status);
             return (
@@ -947,6 +1076,8 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                             ? '#2F7F61'
                             : status === 'En Curso'
                             ? '#07B1C5'
+                            : status === 'Atrasado'
+                            ? '#EF4444'
                             : '#0F2942',
                       }}
                     />
@@ -961,7 +1092,11 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                   {colActs.map((act) => (
                     <div
                       key={act.id}
-                      className="rounded-lg bg-[#F3F0EB]/30 border border-[#0F2942]/10 p-2.5 space-y-2 hover:border-[#0F2942]/30 transition-colors"
+                      className={`rounded-lg p-2.5 space-y-2 transition-colors ${
+                        status === 'Atrasado'
+                          ? 'bg-red-50/40 border-l-4 border-l-red-500 border border-red-200 hover:border-red-400'
+                          : 'bg-[#F3F0EB]/30 border border-[#0F2942]/10 hover:border-[#0F2942]/30'
+                      }`}
                     >
                       <div className="flex items-center justify-between font-mono-tech text-[9px] text-[#0F2942]/60">
                         <span>{act.code}</span>
@@ -1008,20 +1143,38 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                         </div>
                       </div>
 
-                      <div className="rounded bg-white border border-[#0F2942]/8 p-1.5 flex items-center justify-between">
-                        <div className="min-w-0">
+                      <div className="rounded bg-white border border-[#0F2942]/8 p-2 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono-tech text-[8.5px] uppercase font-bold text-[#0F2942]/60">
+                            Asignados ({act.assignees?.length || 1})
+                          </span>
+                          <span className="font-mono-tech text-[9.5px] font-bold text-[#0F2942] bg-[#F3F0EB] border border-[#0F2942]/15 px-1.5 py-0.5 rounded shadow-2xs">
+                            {act.allocationPercent}% cap.
+                          </span>
+                        </div>
+                        {act.assignees && act.assignees.length > 0 ? (
+                          <div className="space-y-1">
+                            {act.assignees.map((as) => (
+                              <div key={as.id} className="flex items-center justify-between text-[10px]">
+                                <span className="font-semibold text-[#0F2942] truncate max-w-[130px]">
+                                  {as.person}
+                                </span>
+                                <span className="font-mono-tech text-[9px] font-bold text-[#0F2942] bg-[#07B1C5]/10 border border-[#07B1C5]/20 px-1 rounded">
+                                  {as.percent}%
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
                           <div className="font-semibold text-[10px] text-[#0F2942] truncate">
                             {act.assignedPerson}
                           </div>
-                          {act.additionalDate && (
-                            <div className="font-mono-tech text-[8px] text-[#07B1C5]">
-                              Entrega: {act.additionalDate}
-                            </div>
-                          )}
-                        </div>
-                        <div className="font-mono-tech text-[10px] font-bold text-[#07B1C5] bg-[#07B1C5]/10 px-1.5 py-0.2 rounded">
-                          {act.allocationPercent}%
-                        </div>
+                        )}
+                        {act.additionalDate && (
+                          <div className="font-mono-tech text-[8.5px] text-[#07B1C5] pt-0.5 border-t border-[#0F2942]/6">
+                            Entrega: {act.additionalDate}
+                          </div>
+                        )}
                       </div>
 
                       <div className="pt-1.5 border-t border-[#0F2942]/8 flex items-center justify-between font-mono-tech text-[9px] text-[#181B1E]/50">
@@ -1065,106 +1218,142 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
       )}
 
       {/* =====================================================================
-          3. GANTT (FILTRADO EN TIEMPO REAL CON LOS MISMOS FILTROS)
+          3. GANTT (FILTRADO EN TIEMPO REAL CON LÍNEA ROJA DE FECHA ACTUAL)
       ===================================================================== */}
-      {activeTab === 'gantt' && (
-        <div className="rounded-xl bg-white border border-[#0F2942]/10 p-4 space-y-3 shadow-xs">
-          <div className="flex items-center justify-between border-b border-[#0F2942]/10 pb-2">
-            <div>
-              <h2 className="text-xs font-bold text-[#0F2942]">Cronograma Gantt Maestro (Filtrable)</h2>
-              <p className="font-mono-tech text-[10px] text-[#181B1E]/60">
-                Mostrando {filteredActivities.length} actividades filtradas por proyecto, cliente y estado
-              </p>
-            </div>
-            <div className="flex items-center gap-3 font-mono-tech text-[10px]">
-              <span className="flex items-center gap-1 text-[#0F2942]">
-                <span className="h-2 w-2 rounded-xs bg-[#0F2942]" />
-                En Planificación / Curso
-              </span>
-              <span className="flex items-center gap-1 text-[#2F7F61]">
-                <span className="h-2 w-2 rounded-xs bg-[#2F7F61]" />
-                Completado (100%)
-              </span>
-            </div>
-          </div>
+      {activeTab === 'gantt' && (() => {
+        const totalSpan = GANTT_END - GANTT_START;
+        const currentDatePercent = Math.max(
+          0,
+          Math.min(100, ((GANTT_CURRENT_DATE - GANTT_START) / totalSpan) * 100)
+        );
 
-          <div className="overflow-x-auto">
-            <div className="min-w-[850px]">
-              {/* Timeline Month Headers */}
-              <div className="grid grid-cols-12 border-b border-[#0F2942]/10 pb-1.5 font-mono-tech text-[10px] text-[#0F2942]/70 font-bold uppercase">
-                <div className="col-span-4 pl-2">Actividad / Cliente</div>
-                <div className="col-span-8 grid grid-cols-8 text-center border-l border-[#0F2942]/10">
-                  {GANTT_MONTH_HEADERS.map((m) => (
-                    <div key={m} className="px-1 truncate">
-                      {m}
+        return (
+          <div className="rounded-xl bg-white border border-[#0F2942]/10 p-4 space-y-3 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-[#0F2942]/10 pb-2 gap-2">
+              <div>
+                <h2 className="text-xs font-bold text-[#0F2942]">Cronograma Gantt Maestro (Filtrable)</h2>
+                <p className="font-mono-tech text-[10px] text-[#181B1E]/60">
+                  Mostrando {filteredActivities.length} actividades filtradas por proyecto, cliente y estado
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3 font-mono-tech text-[10px]">
+                <span className="flex items-center gap-1.5 text-red-600 font-bold">
+                  <span className="h-3 w-0.5 bg-red-600 shadow-xs" />
+                  Hoy (Fecha Actual - 29 Sep)
+                </span>
+                <span className="flex items-center gap-1 text-red-600 font-semibold">
+                  <span className="h-2 w-2 rounded-xs bg-[#EF4444]" />
+                  Atrasado
+                </span>
+                <span className="flex items-center gap-1 text-[#0F2942]">
+                  <span className="h-2 w-2 rounded-xs bg-[#0F2942]" />
+                  En Planificación / Curso
+                </span>
+                <span className="flex items-center gap-1 text-[#2F7F61]">
+                  <span className="h-2 w-2 rounded-xs bg-[#2F7F61]" />
+                  Completado (100%)
+                </span>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <div className="min-w-[850px]">
+                {/* Timeline Month Headers */}
+                <div className="grid grid-cols-12 border-b border-[#0F2942]/10 pb-1.5 font-mono-tech text-[10px] text-[#0F2942]/70 font-bold uppercase relative">
+                  <div className="col-span-4 pl-2">Actividad / Cliente</div>
+                  <div className="col-span-8 grid grid-cols-8 text-center border-l border-[#0F2942]/10 relative">
+                    {/* Línea Roja Vertical de Fecha Actual (Hoy) en el Header */}
+                    <div
+                      className="absolute top-0 bottom-0 pointer-events-none z-30"
+                      style={{ left: `${currentDatePercent}%` }}
+                    >
+                      <span className="absolute -top-3.5 -translate-x-1/2 bg-red-600 text-white font-mono-tech text-[8px] font-bold px-1.5 py-0.5 rounded shadow-xs whitespace-nowrap">
+                        HOY (29 Sep)
+                      </span>
+                      <div className="h-full w-[2px] bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.7)]" />
                     </div>
-                  ))}
+
+                    {GANTT_MONTH_HEADERS.map((m) => (
+                      <div key={m} className="px-1 truncate">
+                        {m}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Activity Gantt Bars */}
+                <div className="divide-y divide-[#0F2942]/8">
+                  {filteredActivities.map((act) => {
+                    const sTime = new Date(act.startDate).getTime();
+                    const eTime = new Date(act.endDate).getTime();
+                    const left = Math.max(0, Math.min(100, ((sTime - GANTT_START) / totalSpan) * 100));
+                    const right = Math.max(0, Math.min(100, ((eTime - GANTT_START) / totalSpan) * 100));
+                    const width = Math.max(5, right - left);
+                    const isDone = act.status === 'Completado' || act.progressPercent === 100;
+                    const isDelayed = act.status === 'Atrasado';
+
+                    return (
+                      <div
+                        key={act.id}
+                        className="grid grid-cols-12 items-center py-2.5 hover:bg-[#F3F0EB]/30 transition-colors"
+                      >
+                        <div className="col-span-4 pr-3 pl-2 truncate">
+                          <div className="flex items-center gap-1 font-mono-tech text-[9px]">
+                            <span className="font-semibold text-[#0F2942]">{act.code}</span>
+                            <span className="text-[#181B1E]/40">·</span>
+                            <span className="font-bold text-[#07B1C5]">{act.client}</span>
+                          </div>
+                          <div className="text-xs font-semibold text-[#0F2942] truncate">
+                            {act.activityTitle}
+                          </div>
+                          <div className="font-mono-tech text-[9px] text-[#181B1E]/60 truncate">
+                            {act.assignedPerson} ({act.startDate} → {act.endDate}) · {act.progressPercent || 0}% avance
+                          </div>
+                        </div>
+
+                        <div className="col-span-8 relative h-10 flex items-center px-2">
+                          {/* Línea Roja Vertical de Fecha Actual (Hoy) en cada fila del Gantt */}
+                          <div
+                            className="absolute top-0 bottom-0 pointer-events-none z-20 w-[2px] bg-red-500/85 shadow-[0_0_6px_rgba(239,68,68,0.4)]"
+                            style={{ left: `${currentDatePercent}%` }}
+                          />
+
+                          <div className="absolute inset-0 grid grid-cols-8 pointer-events-none">
+                            {GANTT_MONTH_HEADERS.map((m) => (
+                              <div key={m} className="border-r border-[#0F2942]/[0.05] last:border-r-0" />
+                            ))}
+                          </div>
+
+                          <div
+                            className={`relative h-5 rounded overflow-hidden flex items-center justify-between px-2 shadow-xs transition-all cursor-pointer ${
+                              isDelayed ? 'ring-1 ring-red-400' : ''
+                            }`}
+                            onClick={() => handleOpenEdit(act)}
+                            style={{
+                              left: `${left}%`,
+                              width: `${width}%`,
+                              backgroundColor: isDone ? '#2F7F61' : isDelayed ? '#EF4444' : '#0F2942',
+                            }}
+                            title={`Editar: ${act.activityTitle} (${act.status} - ${act.progressPercent || 0}% avance)`}
+                          >
+                            <span className="font-mono-tech text-[9px] text-white font-medium truncate flex items-center gap-1">
+                              {isDelayed && <AlertTriangle className="h-2.5 w-2.5 text-white shrink-0" />}
+                              <span>{act.code} ({act.allocationPercent}%)</span>
+                            </span>
+                            <span className="font-mono-tech text-[9px] text-white font-bold">
+                              {isDelayed ? 'Atrasado' : `${act.progressPercent || 0}%`}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-
-              {/* Activity Gantt Bars */}
-              <div className="divide-y divide-[#0F2942]/8">
-                {filteredActivities.map((act) => {
-                  const sTime = new Date(act.startDate).getTime();
-                  const eTime = new Date(act.endDate).getTime();
-                  const totalSpan = GANTT_END - GANTT_START;
-                  const left = Math.max(0, Math.min(100, ((sTime - GANTT_START) / totalSpan) * 100));
-                  const right = Math.max(0, Math.min(100, ((eTime - GANTT_START) / totalSpan) * 100));
-                  const width = Math.max(5, right - left);
-                  const isDone = act.status === 'Completado' || act.progressPercent === 100;
-
-                  return (
-                    <div
-                      key={act.id}
-                      className="grid grid-cols-12 items-center py-2.5 hover:bg-[#F3F0EB]/30 transition-colors"
-                    >
-                      <div className="col-span-4 pr-3 pl-2 truncate">
-                        <div className="flex items-center gap-1 font-mono-tech text-[9px]">
-                          <span className="font-semibold text-[#0F2942]">{act.code}</span>
-                          <span className="text-[#181B1E]/40">·</span>
-                          <span className="font-bold text-[#07B1C5]">{act.client}</span>
-                        </div>
-                        <div className="text-xs font-semibold text-[#0F2942] truncate">
-                          {act.activityTitle}
-                        </div>
-                        <div className="font-mono-tech text-[9px] text-[#181B1E]/60 truncate">
-                          {act.assignedPerson} ({act.startDate} → {act.endDate}) · {act.progressPercent || 0}% avance
-                        </div>
-                      </div>
-
-                      <div className="col-span-8 relative h-10 flex items-center px-2">
-                        <div className="absolute inset-0 grid grid-cols-8 pointer-events-none">
-                          {GANTT_MONTH_HEADERS.map((m) => (
-                            <div key={m} className="border-r border-[#0F2942]/[0.05] last:border-r-0" />
-                          ))}
-                        </div>
-
-                        <div
-                          className="relative h-5 rounded overflow-hidden flex items-center justify-between px-2 shadow-xs transition-all cursor-pointer"
-                          onClick={() => handleOpenEdit(act)}
-                          style={{
-                            left: `${left}%`,
-                            width: `${width}%`,
-                            backgroundColor: isDone ? '#2F7F61' : '#0F2942',
-                          }}
-                          title={`Editar: ${act.activityTitle} (${act.progressPercent || 0}% avance)`}
-                        >
-                          <span className="font-mono-tech text-[9px] text-white font-medium truncate">
-                            {act.code} ({act.allocationPercent}%)
-                          </span>
-                          <span className="font-mono-tech text-[9px] text-[#07B1C5] font-bold">
-                            {act.progressPercent || 0}%
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* =====================================================================
           4. CAPACIDAD MENSUAL (DISEÑO EJECUTIVO UNIFICADO & PROMEDIO DINÁMICO)
@@ -1468,7 +1657,7 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
       )}
 
       {/* =====================================================================
-          MODAL: REGISTRAR / MODIFICAR / EDITAR ACTIVIDAD
+          MODAL: REGISTRAR / MODIFICAR / EDITAR PROYECTO
       ===================================================================== */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F2942]/60 backdrop-blur-xs p-3 overflow-y-auto">
@@ -1478,7 +1667,7 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
               <div className="flex items-center gap-2">
                 <span className="h-2 w-2 rounded-full bg-[#07B1C5]" />
                 <h3 className="text-sm font-bold text-[#0F2942]">
-                  {editingActivityId ? 'Modificar / Editar Actividad' : 'Registrar Nueva Actividad'}
+                  {editingActivityId ? 'Modificar / Editar Proyecto' : 'Registrar Nuevo Proyecto'}
                 </h3>
               </div>
               <button
@@ -1491,28 +1680,11 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
             </div>
 
             <form onSubmit={handleSubmitForm} className="space-y-3.5 text-xs max-h-[75vh] overflow-y-auto pr-1">
-              {/* Activity Title */}
-              <div>
-                <label className="block font-mono-tech text-[10px] font-bold text-[#0F2942] uppercase mb-1">
-                  Nombre de la Actividad <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.activityTitle}
-                  onChange={(e) =>
-                    setFormData({ ...formData, activityTitle: e.target.value })
-                  }
-                  placeholder="Ej. Arquitectura de Ingesta Edge y Conexión SCADA"
-                  className="w-full rounded-md border border-[#0F2942]/20 px-3 py-1.5 text-xs text-[#0F2942] font-semibold focus:border-[#07B1C5] focus:outline-none"
-                />
-              </div>
-
-              {/* Project & Client (Dropdown) */}
+              {/* Project Name & Client (Dropdown) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-mono-tech text-[10px] font-bold text-[#0F2942] uppercase mb-1">
-                    Proyecto <span className="text-red-500">*</span>
+                    Nombre del Proyecto <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -1521,7 +1693,8 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                     onChange={(e) =>
                       setFormData({ ...formData, projectName: e.target.value })
                     }
-                    className="w-full rounded-md border border-[#0F2942]/20 px-3 py-1.5 text-xs text-[#0F2942] focus:border-[#07B1C5] focus:outline-none"
+                    placeholder="Ej. Plataforma IoT & Telemetría en Pozos"
+                    className="w-full rounded-md border border-[#0F2942]/20 px-3 py-1.5 text-xs text-[#0F2942] font-semibold focus:border-[#07B1C5] focus:outline-none"
                   />
                 </div>
                 <div>
@@ -1530,7 +1703,19 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                   </label>
                   <select
                     value={formData.client}
-                    onChange={(e) => setFormData({ ...formData, client: e.target.value })}
+                    onChange={(e) => {
+                      const newClient = e.target.value;
+                      const suggestedProj = CLIENT_DEFAULT_PROJECT[newClient];
+                      setFormData((prev) => ({
+                        ...prev,
+                        client: newClient,
+                        projectName:
+                          !prev.projectName ||
+                          Object.values(CLIENT_DEFAULT_PROJECT).includes(prev.projectName)
+                            ? suggestedProj || prev.projectName
+                            : prev.projectName,
+                      }));
+                    }}
                     className="w-full rounded-md border border-[#0F2942]/20 px-2.5 py-1.5 text-xs text-[#0F2942] font-semibold focus:border-[#07B1C5] focus:outline-none cursor-pointer"
                   >
                     {CLIENT_COMPANIES.map((cl) => (
@@ -1670,44 +1855,135 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                 </div>
               </div>
 
-              {/* Assignee & Allocation % */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-mono-tech text-[10px] font-bold text-[#0F2942] uppercase mb-1">
-                    A Quién Asigno <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={formData.assignedPerson}
-                    onChange={(e) =>
-                      setFormData({ ...formData, assignedPerson: e.target.value })
-                    }
-                    className="w-full rounded-md border border-[#0F2942]/20 px-2.5 py-1.5 text-xs text-[#0F2942] font-semibold focus:border-[#07B1C5] focus:outline-none cursor-pointer"
-                  >
-                    {collaborators.map((c) => (
-                      <option key={c.id} value={c.name}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
+              {/* =====================================================================
+                  A QUIÉN ASIGNO (UNO O MÁS COLABORADORES CON SU RESPECTIVO %)
+                  Y CÁLCULO EN TIEMPO REAL DE LA CAPACIDAD MENSUAL
+              ===================================================================== */}
+              <div className="rounded-xl bg-[#F3F0EB]/50 border border-[#0F2942]/15 p-3.5 space-y-3 shadow-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <UserPlus className="h-4 w-4 text-[#07B1C5] shrink-0" />
+                    <label className="font-mono-tech text-[11px] font-bold text-[#0F2942] uppercase tracking-wide">
+                      A Quién Asigno <span className="text-red-500">*</span>
+                    </label>
+                    <span className="font-mono-tech text-[9.5px] text-[#0F2942] font-semibold bg-white border border-[#0F2942]/15 px-2 py-0.5 rounded-full shadow-2xs">
+                      {formData.assignees.length} {formData.assignees.length === 1 ? 'persona asignada' : 'personas asignadas'}
+                    </span>
+                  </div>
+
+                  {/* CAPACIDAD MENSUAL (COLOR SIMPLE Y ELEGANTE) */}
+                  <div className="flex items-center gap-1.5 bg-[#0F2942] border border-[#0F2942] rounded-lg px-2.5 py-1 shadow-xs text-white">
+                    <Percent className="h-3.5 w-3.5 text-[#07B1C5]" />
+                    <span className="font-mono-tech text-[10px] font-bold uppercase tracking-wider">
+                      Capacidad Mensual:
+                    </span>
+                    <span className="font-mono-tech text-xs font-bold text-[#07B1C5] bg-white/10 px-2 py-0.5 rounded border border-white/20">
+                      {formData.allocationPercent}%
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <label className="block font-mono-tech text-[10px] font-bold text-[#0F2942] uppercase mb-1">
-                    % de Asignación <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="5"
-                    max="100"
-                    step="5"
-                    value={formData.allocationPercent}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        allocationPercent: Number(e.target.value),
-                      })
-                    }
-                    className="w-full rounded-md border border-[#0F2942]/20 px-3 py-1.5 text-xs font-mono-tech text-[#0F2942] font-bold focus:border-[#07B1C5] focus:outline-none"
-                  />
+
+                <p className="text-[11px] text-[#181B1E]/70 leading-tight">
+                  Puedes asignar <strong className="text-[#0F2942] font-semibold">uno o más colaboradores</strong> y fijar su respectivo <strong className="text-[#0F2942] font-semibold">% de asignación individual</strong>. La capacidad mensual promedio se calcula y sincroniza automáticamente.
+                </p>
+
+                {/* Lista interactiva de personas asignadas */}
+                <div className="space-y-2">
+                  {formData.assignees.map((as, index) => (
+                    <div
+                      key={as.id}
+                      className="flex flex-col sm:flex-row sm:items-center gap-2.5 bg-white border border-[#0F2942]/15 p-2.5 rounded-lg shadow-2xs"
+                    >
+                      {/* Persona Selector */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-mono-tech text-[9px] font-bold text-[#0F2942]/70 uppercase">
+                            Colaborador #{index + 1}
+                          </span>
+                          <span className="font-mono-tech text-[9px] text-[#181B1E]/60 truncate max-w-[200px]" title={as.role}>
+                            {as.role}
+                          </span>
+                        </div>
+                        <select
+                          value={as.person}
+                          onChange={(e) =>
+                            handleUpdateAssigneeInForm(as.id, { person: e.target.value })
+                          }
+                          className="w-full rounded-md border border-[#0F2942]/20 px-2.5 py-1.5 text-xs text-[#0F2942] font-semibold focus:border-[#07B1C5] focus:outline-none bg-white cursor-pointer"
+                        >
+                          {collaborators.map((c) => (
+                            <option key={c.id} value={c.name}>
+                              {c.name} — ({c.role})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* % Asignación Individual */}
+                      <div className="w-full sm:w-[160px] shrink-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-mono-tech text-[9px] font-bold text-[#0F2942] uppercase">
+                            % Asignación
+                          </span>
+                          <span className="font-mono-tech text-xs font-bold text-[#0F2942] bg-[#07B1C5]/10 border border-[#07B1C5]/25 px-1.5 py-0.2 rounded">
+                            {as.percent}%
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="range"
+                            min="5"
+                            max="100"
+                            step="5"
+                            value={as.percent}
+                            onChange={(e) =>
+                              handleUpdateAssigneeInForm(as.id, { percent: Number(e.target.value) })
+                            }
+                            className="flex-1 accent-[#07B1C5] cursor-pointer"
+                          />
+                          <input
+                            type="number"
+                            min="5"
+                            max="100"
+                            step="5"
+                            value={as.percent}
+                            onChange={(e) =>
+                              handleUpdateAssigneeInForm(as.id, {
+                                percent: Math.max(5, Math.min(100, Number(e.target.value))),
+                              })
+                            }
+                            className="w-14 rounded border border-[#0F2942]/20 bg-[#F3F0EB]/30 px-1 py-0.5 text-center font-mono-tech text-xs font-bold text-[#0F2942] focus:outline-none focus:border-[#07B1C5]"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Botón Eliminar Colaborador (si hay más de 1) */}
+                      {formData.assignees.length > 1 && (
+                        <div className="flex items-center justify-end sm:pt-4">
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveAssigneeInForm(as.id)}
+                            className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                            title="Quitar colaborador"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Botón para Añadir Otro Colaborador */}
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={handleAddAssigneeToForm}
+                    className="inline-flex items-center gap-1.5 rounded-lg border-2 border-dashed border-[#0F2942]/25 bg-white hover:bg-[#F3F0EB] px-3 py-1.5 font-mono-tech text-xs font-bold text-[#0F2942] transition-colors cursor-pointer"
+                  >
+                    <UserPlus className="h-3.5 w-3.5 text-[#07B1C5]" />
+                    <span>+ Agregar otro colaborador asignado a este proyecto</span>
+                  </button>
                 </div>
               </div>
 
@@ -1784,7 +2060,7 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                     className="inline-flex items-center gap-1.5 rounded-lg bg-[#0F2942] px-4 py-1.5 font-mono-tech text-xs font-bold text-white hover:bg-[#0F2942]/90 shadow-xs cursor-pointer"
                   >
                     <CheckCircle2 className="h-3.5 w-3.5 text-[#07B1C5]" />
-                    <span>{editingActivityId ? 'Guardar Cambios' : 'Registrar Actividad'}</span>
+                    <span>{editingActivityId ? 'Guardar Cambios' : 'Registrar Proyecto'}</span>
                   </button>
                 </div>
               </div>

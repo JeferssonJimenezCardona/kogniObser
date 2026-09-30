@@ -54,11 +54,12 @@ import {
   SUBSECTORS,
   LEAD_SOURCES,
   PARTNERS,
-  SOLUTION_PRODUCTS,
   CONTRACT_TYPES,
   STAGES,
   OWNERS,
   TECH_LEADS,
+  COMPANY_CATEGORIES,
+  CompanyCategory,
   RelationshipLevel,
   ProjectContractType,
   PriorityLevel,
@@ -91,6 +92,7 @@ export const MocModule: React.FC<MocModuleProps> = ({
   // Filters for Table
   const [tableSearch, setTableSearch] = useState('');
   const [tableSector, setTableSector] = useState('Todos');
+  const [tableCategory, setTableCategory] = useState('Todos');
   const [tableStage, setTableStage] = useState('Todos');
   const [tableCountry, setTableCountry] = useState('Todos');
 
@@ -193,6 +195,7 @@ export const MocModule: React.FC<MocModuleProps> = ({
     return {
       code: `OPP-2026-${String(clients.length + 1).padStart(2, '0')}`,
       companyName: '',
+      companyCategory: 'Cliente Kognia' as CompanyCategory,
       taxId: '',
       country: 'Colombia',
       city: 'Bogotá',
@@ -437,6 +440,7 @@ export const MocModule: React.FC<MocModuleProps> = ({
     setFormData({
       code: c.code,
       companyName: c.companyName,
+      companyCategory: c.companyCategory || 'Cliente Kognia',
       taxId: c.taxId || '',
       country: c.country || 'Colombia',
       city: c.city || 'Bogotá',
@@ -907,7 +911,6 @@ export const MocModule: React.FC<MocModuleProps> = ({
     const isNew = !editingClientId;
     const clientRecord: ClientOpportunity = {
       id: isNew ? `moc-${Date.now()}` : editingClientId,
-      code: formData.code,
       createdAt: isNew ? '2026-09-29' : clients.find((c) => c.id === editingClientId)?.createdAt || '2026-09-29',
       updatedAt: '2026-09-29',
       ...formData,
@@ -1014,6 +1017,7 @@ export const MocModule: React.FC<MocModuleProps> = ({
   const filteredTableClients = useMemo(() => {
     return clients.filter((c) => {
       const matchSector = tableSector === 'Todos' || c.industry === tableSector;
+      const matchCategory = tableCategory === 'Todos' || c.companyCategory === tableCategory;
       const matchStage = tableStage === 'Todos' || c.stage === tableStage;
       const matchCountry = tableCountry === 'Todos' || c.country === tableCountry;
       const q = tableSearch.trim().toLowerCase();
@@ -1024,9 +1028,9 @@ export const MocModule: React.FC<MocModuleProps> = ({
         c.opportunityName.toLowerCase().includes(q) ||
         c.contactName.toLowerCase().includes(q) ||
         c.owner.toLowerCase().includes(q);
-      return matchSector && matchStage && matchCountry && matchSearch;
+      return matchSector && matchCategory && matchStage && matchCountry && matchSearch;
     });
-  }, [clients, tableSector, tableStage, tableCountry, tableSearch]);
+  }, [clients, tableSector, tableCategory, tableStage, tableCountry, tableSearch]);
 
   // Filtered clients for Dashboard View
   const filteredDashClients = useMemo(() => {
@@ -1046,7 +1050,7 @@ export const MocModule: React.FC<MocModuleProps> = ({
       (acc, c) => acc + (c.estimatedValue || c.estimatedValueUsd || 0),
       0
     );
-    const wonList = list.filter((c) => c.stage === 'Conversión' || c.stage === 'Ganada (Cliente Activo)');
+    const wonList = list.filter((c) => c.stage === 'Conversión');
     const wonValue = wonList.reduce(
       (acc, c) => acc + (c.estimatedValue || c.estimatedValueUsd || 0),
       0
@@ -1128,7 +1132,7 @@ export const MocModule: React.FC<MocModuleProps> = ({
           (acc, c) => acc + (c.estimatedValue || c.estimatedValueUsd || 0),
           0
         );
-        const won = deals.filter((c) => c.stage === 'Conversión' || c.stage === 'Ganada (Cliente Activo)').length;
+        const won = deals.filter((c) => c.stage === 'Conversión').length;
         const pct = totalPipeline > 0 ? Math.round((val / totalPipeline) * 100) : 0;
         return { owner, count: deals.length, value: val, won, pct };
       })
@@ -1186,7 +1190,7 @@ export const MocModule: React.FC<MocModuleProps> = ({
   }, [filteredDashClients]);
 
   // Stage badge color helper
-  const getStageBadgeStyle = (stage: MocStage) => {
+  const getStageBadgeStyle = (stage: MocStage | string) => {
     switch (stage) {
       case 'Conversión':
       case 'Ganada (Cliente Activo)':
@@ -1306,6 +1310,23 @@ export const MocModule: React.FC<MocModuleProps> = ({
                 </select>
               </div>
 
+              {/* Category Filter */}
+              <div className="flex items-center gap-1">
+                <span className="font-mono-tech text-[10px] text-[#181B1E]/60">Categoría:</span>
+                <select
+                  value={tableCategory}
+                  onChange={(e) => setTableCategory(e.target.value)}
+                  className="rounded-md border border-[#0F2942]/15 bg-[#F3F0EB]/30 px-2 py-1 text-xs text-[#0F2942] font-medium focus:border-[#07B1C5] focus:outline-none cursor-pointer"
+                >
+                  <option value="Todos">Todos</option>
+                  {COMPANY_CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {/* Stage Filter */}
               <div className="flex items-center gap-1">
                 <span className="font-mono-tech text-[10px] text-[#181B1E]/60">Estado:</span>
@@ -1366,9 +1387,24 @@ export const MocModule: React.FC<MocModuleProps> = ({
                         </td>
 
                         {/* Company & Country */}
-                        <td className="px-2.5 py-2.5 max-w-[200px]">
-                          <div className="font-semibold text-xs text-[#0F2942] truncate">
-                            {client.companyName}
+                        <td className="px-2.5 py-2.5 max-w-[220px]">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-semibold text-xs text-[#0F2942] truncate">
+                              {client.companyName}
+                            </span>
+                            {client.companyCategory && (
+                              <span
+                                className={`font-mono-tech text-[8.5px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${
+                                  client.companyCategory === 'Partner'
+                                    ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                                    : client.companyCategory === 'Cliente - Emegia'
+                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                    : 'bg-[#0F2942]/10 text-[#0F2942] border border-[#0F2942]/20'
+                                }`}
+                              >
+                                {client.companyCategory}
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-1 font-mono-tech text-[9px] text-[#181B1E]/60 truncate mt-0.5">
                             <MapPin className="h-2.5 w-2.5 text-[#07B1C5] shrink-0" />
@@ -1385,8 +1421,22 @@ export const MocModule: React.FC<MocModuleProps> = ({
                           <div className="font-medium text-[11px] text-[#0F2942] truncate">
                             {client.opportunityName}
                           </div>
-                          <div className="font-mono-tech text-[9px] text-[#181B1E]/55 truncate mt-0.5">
-                            {client.solutionProducts?.join(', ') || client.projectType}
+                          <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                            <span className="font-mono-tech text-[9px] text-[#181B1E]/55 truncate">
+                              {client.projectType}
+                            </span>
+                            {client.solutionProducts && client.solutionProducts.length > 0 && (
+                              <div className="flex items-center gap-1">
+                                {client.solutionProducts.map((p) => (
+                                  <span
+                                    key={p}
+                                    className="font-mono-tech text-[8px] font-bold px-1 py-0.2 rounded bg-[#07B1C5]/15 text-[#0F2942] border border-[#07B1C5]/30"
+                                  >
+                                    {p}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </td>
 
@@ -1824,7 +1874,7 @@ export const MocModule: React.FC<MocModuleProps> = ({
 
                 <div className="space-y-3 max-h-[440px] overflow-y-auto pr-1">
                   {dashMetrics.superFunnel.map((step) => {
-                    const isWon = step.stage === 'Conversión' || step.stage === 'Ganada (Cliente Activo)';
+                    const isWon = step.stage === 'Conversión';
                     const isSelected = dashStage === step.stage;
                     const stageDisplayName =
                       step.step === 1
@@ -2413,9 +2463,9 @@ export const MocModule: React.FC<MocModuleProps> = ({
               ------------------------------------------------------------- */}
               {formSection === 'empresa' && (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     {/* Razón Social */}
-                    <div>
+                    <div className="sm:col-span-2">
                       <label className="block font-mono-tech text-[10px] font-bold text-[#0F2942] uppercase mb-1">
                         Razón Social / Empresa <span className="text-red-500">*</span>
                       </label>
@@ -2424,24 +2474,47 @@ export const MocModule: React.FC<MocModuleProps> = ({
                         required
                         value={formData.companyName}
                         onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                        placeholder="Ej. PetroAndina Exploración & Refinación"
+                        placeholder="Ej. Keralty, Enlace Operativo o Telepizza"
                         className="w-full rounded-md border border-[#0F2942]/20 px-3 py-1.5 text-xs text-[#0F2942] font-semibold focus:border-[#07B1C5] focus:outline-none"
                       />
                     </div>
 
-                    {/* NIT / Tax ID */}
+                    {/* Categoría de Empresa (Partner / Cliente - Emegia / Cliente Kognia) */}
                     <div>
                       <label className="block font-mono-tech text-[10px] font-bold text-[#0F2942] uppercase mb-1">
-                        NIT / Tax ID
+                        Categoría de Empresa <span className="text-red-500">*</span>
                       </label>
-                      <input
-                        type="text"
-                        value={formData.taxId}
-                        onChange={(e) => setFormData({ ...formData, taxId: e.target.value })}
-                        placeholder="Ej. 800.198.423-1"
-                        className="w-full rounded-md border border-[#0F2942]/20 px-3 py-1.5 text-xs text-[#0F2942] focus:border-[#07B1C5] focus:outline-none font-mono-tech"
-                      />
+                      <select
+                        value={formData.companyCategory || 'Cliente Kognia'}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            companyCategory: e.target.value as CompanyCategory,
+                          })
+                        }
+                        className="w-full rounded-md border border-[#0F2942]/20 px-3 py-1.5 text-xs text-[#0F2942] font-semibold focus:border-[#07B1C5] focus:outline-none cursor-pointer bg-white"
+                      >
+                        {COMPANY_CATEGORIES.map((cat) => (
+                          <option key={cat} value={cat}>
+                            {cat}
+                          </option>
+                        ))}
+                      </select>
                     </div>
+                  </div>
+
+                  {/* NIT / Tax ID */}
+                  <div>
+                    <label className="block font-mono-tech text-[10px] font-bold text-[#0F2942] uppercase mb-1">
+                      NIT / Tax ID
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.taxId}
+                      onChange={(e) => setFormData({ ...formData, taxId: e.target.value })}
+                      placeholder="Ej. 800.198.423-1"
+                      className="w-full rounded-md border border-[#0F2942]/20 px-3 py-1.5 text-xs text-[#0F2942] focus:border-[#07B1C5] focus:outline-none font-mono-tech"
+                    />
                   </div>
 
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -2844,7 +2917,7 @@ export const MocModule: React.FC<MocModuleProps> = ({
                                 </h4>
                                 <span
                                   className={`font-mono-tech text-[10px] font-semibold px-2 py-0.5 rounded ${
-                                    opp.stage === 'Conversión' || opp.stage === 'Ganada (Cliente Activo)'
+                                    opp.stage === 'Conversión'
                                       ? 'bg-emerald-100 text-emerald-800'
                                       : opp.stage === 'Propuesta' || opp.stage === 'Negociación'
                                       ? 'bg-blue-100 text-blue-800'
@@ -2853,14 +2926,6 @@ export const MocModule: React.FC<MocModuleProps> = ({
                                 >
                                   {opp.stage} ({opp.probability}%)
                                 </span>
-                                {(opp.solutionProducts || []).slice(0, 3).map((prod) => (
-                                  <span
-                                    key={prod}
-                                    className="font-mono-tech text-[9.5px] font-semibold bg-[#07B1C5]/15 text-[#0F2942] border border-[#07B1C5]/30 px-1.5 py-0.5 rounded"
-                                  >
-                                    {prod}
-                                  </span>
-                                ))}
                               </div>
 
                               <div className="flex items-center gap-3 self-end sm:self-auto">
@@ -2958,35 +3023,63 @@ export const MocModule: React.FC<MocModuleProps> = ({
                                   />
                                 </div>
 
-                                {/* Soluciones Kognia */}
-                                <div>
-                                  <label className="block font-mono-tech text-[10px] font-bold text-[#0F2942] uppercase mb-1">
-                                    Línea de Negocio / Soluciones Kognia <span className="text-red-500">*</span>
-                                  </label>
-                                  <div className="flex flex-wrap gap-1.5 p-2 rounded-lg border border-[#0F2942]/20 bg-[#F3F0EB]/40">
-                                    {SOLUTION_PRODUCTS.map((prod) => {
+                                {/* Línea de Negocio (Selección Múltiple: VOXI, CHARLI, SIDEKI) DEBAJO DE Descripción */}
+                                <div className="rounded-xl bg-[#F3F0EB]/60 border border-[#0F2942]/10 p-3 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <label className="block font-mono-tech text-[10px] font-bold text-[#0F2942] uppercase">
+                                      Línea de Negocio (Selección Múltiple) <span className="text-red-500">*</span>
+                                    </label>
+                                    <span className="font-mono-tech text-[9.5px] text-[#07B1C5] font-bold">
+                                      {(opp.solutionProducts || []).length} seleccionadas
+                                    </span>
+                                  </div>
+
+                                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                                    {['VOXI', 'CHARLI', 'SIDEKI'].map((prod) => {
                                       const isSelected = (opp.solutionProducts || []).includes(prod);
                                       return (
                                         <button
                                           key={prod}
                                           type="button"
                                           onClick={() => {
-                                            const currentList = opp.solutionProducts || [];
-                                            const updatedList = isSelected
-                                              ? currentList.filter((p) => p !== prod)
-                                              : [...currentList, prod];
-                                            handleUpdateOpportunityByIdx(oppIdx, { solutionProducts: updatedList });
+                                            const current = opp.solutionProducts || [];
+                                            const next = isSelected
+                                              ? current.filter((p) => p !== prod)
+                                              : [...current, prod];
+                                            handleUpdateOpportunityByIdx(oppIdx, { solutionProducts: next });
                                           }}
-                                          className={`px-2.5 py-1 rounded-md text-[10px] font-mono-tech font-bold transition-all cursor-pointer border ${
+                                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-mono-tech text-xs font-bold transition-all cursor-pointer border ${
                                             isSelected
-                                              ? 'bg-[#0F2942] text-white border-[#0F2942] shadow-2xs'
-                                              : 'bg-white text-[#0F2942] border-[#0F2942]/20 hover:bg-[#F3F0EB]'
+                                              ? 'bg-[#0F2942] text-white border-[#0F2942] shadow-xs'
+                                              : 'bg-white text-[#0F2942]/70 border-[#0F2942]/20 hover:border-[#07B1C5] hover:text-[#0F2942]'
                                           }`}
                                         >
-                                          {isSelected ? `✓ ${prod}` : `+ ${prod}`}
+                                          <span className={isSelected ? 'text-[#07B1C5] font-black' : 'text-[#181B1E]/40'}>
+                                            {isSelected ? '✓' : '+'}
+                                          </span>
+                                          <span>{prod}</span>
                                         </button>
                                       );
                                     })}
+
+                                    {/* Custom / Additional tags if any */}
+                                    {(opp.solutionProducts || [])
+                                      .filter((p) => !['VOXI', 'CHARLI', 'SIDEKI'].includes(p))
+                                      .map((customProd) => (
+                                        <button
+                                          key={customProd}
+                                          type="button"
+                                          onClick={() => {
+                                            const next = (opp.solutionProducts || []).filter((p) => p !== customProd);
+                                            handleUpdateOpportunityByIdx(oppIdx, { solutionProducts: next });
+                                          }}
+                                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-mono-tech text-xs font-bold bg-[#07B1C5]/15 text-[#0F2942] border border-[#07B1C5]/30 cursor-pointer"
+                                        >
+                                          <span>✓</span>
+                                          <span>{customProd}</span>
+                                          <X className="h-3 w-3 ml-0.5 text-red-500" />
+                                        </button>
+                                      ))}
                                   </div>
                                 </div>
 
@@ -3051,7 +3144,7 @@ export const MocModule: React.FC<MocModuleProps> = ({
                                         handleUpdateOpportunityByIdx(oppIdx, {
                                           stage: newSt,
                                           probability:
-                                            newSt === 'Conversión' || newSt === 'Ganada (Cliente Activo)'
+                                            newSt === 'Conversión'
                                               ? 100
                                               : newSt === 'Perdida'
                                               ? 0
@@ -3634,7 +3727,7 @@ export const MocModule: React.FC<MocModuleProps> = ({
                                   ) : (
                                     <>
                                       <ChevronDown className="h-3 w-3" />
-                                      <span>Mostrar todo &amp; Excel</span>
+                                      <span>Mostrar Detalles</span>
                                     </>
                                   )}
                                 </button>
@@ -3655,82 +3748,9 @@ export const MocModule: React.FC<MocModuleProps> = ({
                               </div>
                             </div>
 
-                            {/* Card Body: Quotation Details, Formula & Interactive Excel */}
+                            {/* Card Body: Quotation Details */}
                             {isExpanded && (
                               <div className="p-4 space-y-4 border-t border-[#0F2942]/10 bg-white rounded-b-xl animate-in fade-in duration-200">
-                                {/* Formula Card for this specific quotation */}
-                                <div className="rounded-xl bg-gradient-to-r from-[#0F2942] via-[#1B4269] to-[#0F2942] text-white p-4 shadow-sm space-y-3">
-                                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-white/10 pb-2 gap-1">
-                                    <div className="flex items-center gap-2">
-                                      <Calculator className="h-4 w-4 text-[#07B1C5]" />
-                                      <span className="font-mono-tech text-xs font-bold uppercase tracking-wider text-[#07B1C5]">
-                                        Fórmula Económica Dinámica &amp; Desglose ({quote.code})
-                                      </span>
-                                    </div>
-                                    <div className="flex items-center gap-2 font-mono-tech text-[10px]">
-                                      <span className="bg-[#07B1C5]/20 text-[#07B1C5] border border-[#07B1C5]/40 px-2 py-0.5 rounded font-bold">
-                                        Moneda: {quote.currency}
-                                      </span>
-                                    </div>
-                                  </div>
-
-                                  {/* Formula Visual Breakdown */}
-                                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 items-stretch">
-                                    {/* 1. Setup */}
-                                    <div className="rounded-lg bg-white/10 border border-white/10 p-2.5 text-center flex flex-col justify-between">
-                                      <span className="font-mono-tech text-[9px] text-white/70 uppercase">
-                                        1. Setup Inicial ($)
-                                      </span>
-                                      <span className="font-mono-tech text-base font-bold text-[#07B1C5] mt-1">
-                                        {formatCurrency(currentSetup, quote.currency)}
-                                      </span>
-                                    </div>
-
-                                    {/* 2. Venta */}
-                                    <div className="rounded-lg bg-white/10 border border-white/10 p-2.5 text-center flex flex-col justify-between">
-                                      <span className="font-mono-tech text-[9px] text-white/70 uppercase">
-                                        2. Venta / Recurrente ($)
-                                      </span>
-                                      <span className="font-mono-tech text-base font-bold text-white mt-1">
-                                        {formatCurrency(currentSale, quote.currency)}
-                                      </span>
-                                    </div>
-
-                                    {/* 3. Descuento % */}
-                                    <div className="rounded-lg bg-white/10 border border-white/10 p-2.5 text-center flex flex-col justify-between">
-                                      <span className="font-mono-tech text-[9px] text-white/70 uppercase">
-                                        3. Descuento ({currentDiscountPct}%)
-                                      </span>
-                                      <span className="font-mono-tech text-sm font-semibold text-amber-300 mt-1">
-                                        -{formatCurrency(descuentoMonto, quote.currency)}
-                                      </span>
-                                    </div>
-
-                                    {/* 4. Impuestos / IVA % */}
-                                    <div className="rounded-lg bg-white/10 border border-white/10 p-2.5 text-center flex flex-col justify-between">
-                                      <span className="font-mono-tech text-[9px] text-white/70 uppercase">
-                                        4. Impuesto / IVA ({currentTaxPct}%)
-                                      </span>
-                                      <span className="font-mono-tech text-sm font-semibold text-emerald-300 mt-1">
-                                        +{formatCurrency(impuestosMonto, quote.currency)}
-                                      </span>
-                                    </div>
-                                  </div>
-
-                                  {/* Dynamic Formula Result Bar */}
-                                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-t border-white/10 pt-2.5 gap-2">
-                                    <div className="font-mono-tech text-[10.5px] text-white/80">
-                                      <strong>Fórmula:</strong> (Setup + Venta) - Descuento + Impuestos = <strong>Total Cotizado</strong>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-mono-tech text-xs text-white/70 uppercase">Total Cotizado:</span>
-                                      <span className="font-mono-tech text-xl font-bold text-[#07B1C5]">
-                                        {formatCurrency(currentTotal, quote.currency)}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-
                                 {/* Configuración de Precios, Descuentos e Impuestos */}
                                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
                                   {/* Título de la Versión */}
@@ -3860,171 +3880,6 @@ export const MocModule: React.FC<MocModuleProps> = ({
                                         %
                                       </span>
                                     </div>
-                                  </div>
-                                </div>
-
-                                {/* =========================================================
-                                    PLANILLA EXCEL INTERACTIVA & AJUSTABLE (MODELO DE COSTOS)
-                                ========================================================= */}
-                                <div className="rounded-xl border border-[#0F2942]/15 bg-white p-3.5 space-y-3 shadow-xs">
-                                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-[#0F2942]/10 pb-2 gap-2">
-                                    <div className="flex items-center gap-2">
-                                      <FileSpreadsheet className="h-4 w-4 text-[#2F7F61]" />
-                                      <div>
-                                        <h4 className="font-mono-tech text-xs font-bold text-[#0F2942] uppercase">
-                                          Planilla Excel Ajustable &amp; Desglose por Entregables ({quote.code})
-                                        </h4>
-                                        <p className="font-mono-tech text-[9.5px] text-[#181B1E]/60">
-                                          Modifica los ítems, horas/unidades y tarifas. Puedes sincronizar los subtotales directamente con la cotización.
-                                        </p>
-                                      </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-2">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleSyncExcelTotalsToQuoteByIdx(qIdx)}
-                                        className="inline-flex items-center gap-1 rounded bg-[#07B1C5]/15 hover:bg-[#07B1C5] hover:text-[#0F2942] text-[#0F2942] border border-[#07B1C5]/40 px-2.5 py-1 font-mono-tech text-[10px] font-bold transition-all cursor-pointer shadow-2xs"
-                                        title="Sincronizar totales de la planilla con Setup y Venta"
-                                      >
-                                        <RefreshCw className="h-3 w-3 text-[#07B1C5]" />
-                                        <span>⚡ Sincronizar Totales</span>
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleExportExcel(quote)}
-                                        className="inline-flex items-center gap-1 rounded bg-[#2F7F61]/15 hover:bg-[#2F7F61] hover:text-white text-[#2F7F61] border border-[#2F7F61]/30 px-2.5 py-1 font-mono-tech text-[10px] font-bold transition-all cursor-pointer shadow-2xs"
-                                        title="Descargar esta planilla en formato Excel CSV"
-                                      >
-                                        <Download className="h-3 w-3" />
-                                        <span>Descargar Excel</span>
-                                      </button>
-                                    </div>
-                                  </div>
-
-                                  {/* Excel Editable Grid */}
-                                  <div className="overflow-x-auto border border-[#0F2942]/10 rounded-lg">
-                                    <table className="w-full text-left border-collapse text-xs">
-                                      <thead>
-                                        <tr className="bg-[#F3F0EB]/80 font-mono-tech text-[9.5px] text-[#0F2942] uppercase border-b border-[#0F2942]/10">
-                                          <th className="py-2 px-2.5 font-bold">Concepto / Entregable</th>
-                                          <th className="py-2 px-2 font-bold w-40">Categoría</th>
-                                          <th className="py-2 px-2 font-bold text-right w-24">Cant. / Horas</th>
-                                          <th className="py-2 px-2 font-bold text-right w-28">Tarifa Unitaria ({quote.currency})</th>
-                                          <th className="py-2 px-2.5 font-bold text-right w-28">Subtotal</th>
-                                          <th className="py-2 px-1 text-center w-10"></th>
-                                        </tr>
-                                      </thead>
-                                      <tbody className="divide-y divide-[#0F2942]/10 font-mono-tech text-[11px]">
-                                        {excelRows.map((row) => (
-                                          <tr key={row.id} className="hover:bg-[#F3F0EB]/30 transition-colors">
-                                            <td className="py-1 px-2.5">
-                                              <input
-                                                type="text"
-                                                value={row.concept}
-                                                onChange={(e) => handleUpdateExcelRowByIdx(qIdx, row.id, { concept: e.target.value })}
-                                                className="w-full rounded border border-transparent hover:border-[#0F2942]/20 focus:border-[#07B1C5] px-1.5 py-0.5 font-medium text-[#0F2942] bg-transparent focus:bg-white focus:outline-none"
-                                                placeholder="Nombre del entregable o servicio..."
-                                              />
-                                            </td>
-                                            <td className="py-1 px-2">
-                                              <select
-                                                value={row.category}
-                                                onChange={(e) =>
-                                                  handleUpdateExcelRowByIdx(qIdx, row.id, {
-                                                    category: e.target.value as QuotationExcelRow['category'],
-                                                  })
-                                                }
-                                                className="w-full rounded border border-transparent hover:border-[#0F2942]/20 focus:border-[#07B1C5] px-1 py-0.5 text-[10px] text-[#0F2942] bg-transparent focus:bg-white focus:outline-none cursor-pointer"
-                                              >
-                                                <option value="Setup / Arquitectura">Setup / Arquitectura</option>
-                                                <option value="Desarrollo & IA">Desarrollo &amp; IA</option>
-                                                <option value="Licencias & Plataforma">Licencias &amp; Plataforma</option>
-                                                <option value="Soporte & Cloud">Soporte &amp; Cloud</option>
-                                                <option value="Consultoría">Consultoría</option>
-                                              </select>
-                                            </td>
-                                            <td className="py-1 px-2 text-right">
-                                              <input
-                                                type="number"
-                                                min="1"
-                                                step="1"
-                                                value={row.qty}
-                                                onChange={(e) => handleUpdateExcelRowByIdx(qIdx, row.id, { qty: Number(e.target.value) })}
-                                                className="w-20 rounded border border-transparent hover:border-[#0F2942]/20 focus:border-[#07B1C5] px-1.5 py-0.5 text-right font-bold text-[#0F2942] bg-transparent focus:bg-white focus:outline-none"
-                                              />
-                                            </td>
-                                            <td className="py-1 px-2 text-right">
-                                              <input
-                                                type="number"
-                                                min="0"
-                                                step="50"
-                                                value={row.unitPrice}
-                                                onChange={(e) => handleUpdateExcelRowByIdx(qIdx, row.id, { unitPrice: Number(e.target.value) })}
-                                                className="w-24 rounded border border-transparent hover:border-[#0F2942]/20 focus:border-[#07B1C5] px-1.5 py-0.5 text-right font-bold text-[#0F2942] bg-transparent focus:bg-white focus:outline-none"
-                                              />
-                                            </td>
-                                            <td className="py-1 px-2.5 text-right font-bold text-[#07B1C5]">
-                                              {formatCurrency(row.total || 0, quote.currency)}
-                                            </td>
-                                            <td className="py-1 px-1 text-center">
-                                              <button
-                                                type="button"
-                                                onClick={() => handleRemoveExcelRowByIdx(qIdx, row.id)}
-                                                className="text-[#181B1E]/30 hover:text-red-600 p-0.5 transition-colors cursor-pointer"
-                                                title="Eliminar fila"
-                                              >
-                                                <Trash2 className="h-3.5 w-3.5" />
-                                              </button>
-                                            </td>
-                                          </tr>
-                                        ))}
-
-                                        {excelRows.length === 0 && (
-                                          <tr>
-                                            <td colSpan={6} className="py-4 text-center text-[#181B1E]/50 font-mono-tech text-[10px]">
-                                              No hay filas en la planilla Excel aún. Haz clic en el botón de abajo para agregar una.
-                                            </td>
-                                          </tr>
-                                        )}
-                                      </tbody>
-                                      <tfoot>
-                                        <tr className="bg-[#F3F0EB]/60 font-mono-tech text-[10.5px] border-t border-[#0F2942]/15 font-bold">
-                                          <td colSpan={2} className="py-2 px-2.5">
-                                            <div className="flex items-center gap-2">
-                                              <button
-                                                type="button"
-                                                onClick={() => handleAddExcelRowByIdx(qIdx, 'Setup / Arquitectura')}
-                                                className="rounded bg-white border border-[#0F2942]/20 px-2 py-0.5 text-[9.5px] text-[#0F2942] hover:bg-[#07B1C5] hover:text-[#0F2942] transition-colors cursor-pointer"
-                                              >
-                                                + Fila Setup
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={() => handleAddExcelRowByIdx(qIdx, 'Desarrollo & IA')}
-                                                className="rounded bg-white border border-[#0F2942]/20 px-2 py-0.5 text-[9.5px] text-[#0F2942] hover:bg-[#07B1C5] hover:text-[#0F2942] transition-colors cursor-pointer"
-                                              >
-                                                + Fila Desarrollo/IA
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={() => handleAddExcelRowByIdx(qIdx, 'Licencias & Plataforma')}
-                                                className="rounded bg-white border border-[#0F2942]/20 px-2 py-0.5 text-[9.5px] text-[#0F2942] hover:bg-[#07B1C5] hover:text-[#0F2942] transition-colors cursor-pointer"
-                                              >
-                                                + Fila Licencias
-                                              </button>
-                                            </div>
-                                          </td>
-                                          <td colSpan={2} className="py-2 px-2 text-right text-[#0F2942]">
-                                            Total Calculado Planilla Excel:
-                                          </td>
-                                          <td className="py-2 px-2.5 text-right text-[#07B1C5] text-xs">
-                                            {formatCurrency(totalExcelPlanilla, quote.currency)}
-                                          </td>
-                                          <td></td>
-                                        </tr>
-                                      </tfoot>
-                                    </table>
                                   </div>
                                 </div>
 

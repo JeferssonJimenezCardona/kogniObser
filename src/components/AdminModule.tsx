@@ -116,7 +116,8 @@ export const AdminModule: React.FC = () => {
     { id: 'ts-1', name: 'Por Iniciar', color: '#94A3B8' },
     { id: 'ts-2', name: 'En Curso', color: '#07B1C5' },
     { id: 'ts-3', name: 'En Revisión', color: '#D97706' },
-    { id: 'ts-4', name: 'Completado', color: '#2F7F61' },
+    { id: 'ts-4', name: 'Atrasado', color: '#EF4444' },
+    { id: 'ts-5', name: 'Completado', color: '#2F7F61' },
   ]);
   const [newStatusName, setNewStatusName] = useState('');
   const [newStatusColor, setNewStatusColor] = useState('#07B1C5');

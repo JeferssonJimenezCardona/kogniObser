@@ -70,7 +70,14 @@ export default function App() {
     setActivities((prev) =>
       prev.map((a) => {
         if (a.id !== activityId) return a;
-        const progress = nextStatus === 'Completado' ? 100 : nextStatus === 'Por Iniciar' ? 0 : a.progressPercent || 50;
+        const progress =
+          nextStatus === 'Completado'
+            ? 100
+            : nextStatus === 'Por Iniciar'
+            ? 0
+            : nextStatus === 'Atrasado'
+            ? a.progressPercent === 100 ? 50 : a.progressPercent || 30
+            : a.progressPercent || 50;
         return { ...a, status: nextStatus, progressPercent: progress };
       })
     );
@@ -78,7 +85,22 @@ export default function App() {
 
   const handleUpdateAllocation = (activityId: string, newPercent: number) => {
     setActivities((prev) =>
-      prev.map((a) => (a.id === activityId ? { ...a, allocationPercent: newPercent } : a))
+      prev.map((a) => {
+        if (a.id !== activityId) return a;
+        if (!a.assignees || a.assignees.length <= 1) {
+          const updatedAssignees = a.assignees && a.assignees.length === 1
+            ? [{ ...a.assignees[0], percent: newPercent }]
+            : undefined;
+          return { ...a, allocationPercent: newPercent, assignees: updatedAssignees };
+        }
+        const currentAvg = a.allocationPercent || 1;
+        const ratio = newPercent / currentAvg;
+        const updatedAssignees = a.assignees.map((as) => ({
+          ...as,
+          percent: Math.max(5, Math.min(100, Math.round(as.percent * ratio))),
+        }));
+        return { ...a, allocationPercent: newPercent, assignees: updatedAssignees };
+      })
     );
   };
 
@@ -135,8 +157,6 @@ export default function App() {
                 ? 'MOC'
                 : activeModule === 'proyectos'
                 ? 'PROYECTOS'
-                : activeModule === 'cotizaciones'
-                ? 'COTIZACIONES'
                 : 'ADMINISTRACIÓN'}
             </span>
           </div>
