@@ -197,6 +197,8 @@ export interface ActivityTask {
   title: string;
   completed: boolean;
   hours: number; // Horas de esfuerzo asignadas a esta tarea/subtarea
+  assigneePerson?: string; // Colaborador asignado a esta tarea/subtarea
+  assigneeId?: string; // ID del asignado en la actividad
 }
 
 export interface ActivityAssignee {
@@ -1334,9 +1336,9 @@ export const INITIAL_ACTIVITIES: ProjectActivity[] = [
     activityTitle: 'Arquitectura de Ingesta & Conectividad Clínica Keralty',
     taskDetails: 'Configuración de gateways industriales OPC-UA y buffer local MQTT para pozos de difícil conectividad.',
     tasks: [
-      { id: 't-101-1', title: 'Configurar gateways industriales OPC-UA en 12 pozos piloto', completed: true, hours: 8 },
-      { id: 't-101-2', title: 'Buffer local MQTT y sincronización edge-to-cloud', completed: true, hours: 8 },
-      { id: 't-101-3', title: 'Pruebas de tolerancia a desconexión satelital', completed: false, hours: 8 },
+      { id: 't-101-1', title: 'Configurar gateways industriales OPC-UA en 12 pozos piloto', completed: true, hours: 8, assigneeId: 'as-101-1', assigneePerson: 'Luis Pardo Fonseca' },
+      { id: 't-101-2', title: 'Buffer local MQTT y sincronización edge-to-cloud', completed: true, hours: 8, assigneeId: 'as-101-1', assigneePerson: 'Luis Pardo Fonseca' },
+      { id: 't-101-3', title: 'Pruebas de tolerancia a desconexión satelital', completed: false, hours: 8, assigneeId: 'as-101-2', assigneePerson: 'Daniela Pineda' },
     ],
     assignedPerson: 'Luis Pardo Fonseca',
     assignedRole: 'CEO & Principal Architect',
@@ -1363,9 +1365,9 @@ export const INITIAL_ACTIVITIES: ProjectActivity[] = [
     activityTitle: 'Modelado Predictivo de Ocupación Hospitalaria & Urgencias',
     taskDetails: 'Entrenamiento de modelos con histórico de vibración y temperatura en turbomaquinaria.',
     tasks: [
-      { id: 't-102-1', title: 'Limpieza y extracción de telemetría de vibración (2024-2026)', completed: true, hours: 30 },
-      { id: 't-102-2', title: 'Entrenamiento de algoritmos no supervisados de anomalías', completed: true, hours: 40 },
-      { id: 't-102-3', title: 'Despliegue del modelo en contenedor Triton sobre EKS', completed: false, hours: 30 },
+      { id: 't-102-1', title: 'Limpieza y extracción de telemetría de vibración (2024-2026)', completed: true, hours: 30, assigneeId: 'as-102-1', assigneePerson: 'Daniela Pineda' },
+      { id: 't-102-2', title: 'Entrenamiento de algoritmos no supervisados de anomalías', completed: true, hours: 40, assigneeId: 'as-102-1', assigneePerson: 'Daniela Pineda' },
+      { id: 't-102-3', title: 'Despliegue del modelo en contenedor Triton sobre EKS', completed: false, hours: 30, assigneeId: 'as-102-1', assigneePerson: 'Daniela Pineda' },
     ],
     assignedPerson: 'Daniela Pineda',
     assignedRole: 'Senior MLOps & Data Engineer',
@@ -1391,9 +1393,9 @@ export const INITIAL_ACTIVITIES: ProjectActivity[] = [
     activityTitle: 'Pipeline de Procesamiento de Planillas PILA en Tiempo Real',
     taskDetails: 'Orquestación de microservicios Rust/Go para cálculo de variables financieras en caliente sobre Lakehouse.',
     tasks: [
-      { id: 't-201-1', title: 'Diseño de microservicio Rust de cálculo de features', completed: true, hours: 30 },
-      { id: 't-201-2', title: 'Integración con caché en memoria Redis Enterprise', completed: true, hours: 25 },
-      { id: 't-201-3', title: 'Prueba de carga con 10,000 req/seg en sandbox bancario', completed: false, hours: 25 },
+      { id: 't-201-1', title: 'Diseño de microservicio Rust de cálculo de features', completed: true, hours: 30, assigneeId: 'as-201-1', assigneePerson: 'Mateo Londoño' },
+      { id: 't-201-2', title: 'Integración con caché en memoria Redis Enterprise', completed: true, hours: 25, assigneeId: 'as-201-1', assigneePerson: 'Mateo Londoño' },
+      { id: 't-201-3', title: 'Prueba de carga con 10,000 req/seg en sandbox bancario', completed: false, hours: 25, assigneeId: 'as-201-2', assigneePerson: 'Andres Galindo Garcia' },
     ],
     assignedPerson: 'Mateo Londoño',
     assignedRole: 'Principal Solutions Architect',
@@ -1420,9 +1422,9 @@ export const INITIAL_ACTIVITIES: ProjectActivity[] = [
     activityTitle: 'Validación Automática de Aportes & Dispersión Bancaria',
     taskDetails: 'Formulación estocástica y modelo de programación no lineal para maximizar margen marginal en mercado mayorista.',
     tasks: [
-      { id: 't-202-1', title: 'Modelo estocástico de precios de gas y agua XM', completed: true, hours: 20 },
-      { id: 't-202-2', title: 'Curvas de rendimiento térmico de turbinas de ciclo combinado', completed: true, hours: 20 },
-      { id: 't-202-3', title: 'Integración con despacho automático SCADA', completed: true, hours: 20 },
+      { id: 't-202-1', title: 'Modelo estocástico de precios de gas y agua XM', completed: true, hours: 20, assigneeId: 'as-202-1', assigneePerson: 'Andres Galindo Garcia' },
+      { id: 't-202-2', title: 'Curvas de rendimiento térmico de turbinas de ciclo combinado', completed: true, hours: 20, assigneeId: 'as-202-1', assigneePerson: 'Andres Galindo Garcia' },
+      { id: 't-202-3', title: 'Integración con despacho automático SCADA', completed: true, hours: 20, assigneeId: 'as-202-1', assigneePerson: 'Andres Galindo Garcia' },
     ],
     assignedPerson: 'Andres Galindo Garcia',
     assignedRole: 'Delivery Manager',
@@ -1448,8 +1450,8 @@ export const INITIAL_ACTIVITIES: ProjectActivity[] = [
     activityTitle: 'Simulador de Tiempos de Entrega & Asignación de Repartidores',
     taskDetails: 'Modelado fenomenológico del circuito de chancado y molienda autógena con retroalimentación en línea.',
     tasks: [
-      { id: 't-301-1', title: 'Recolección de señales de potencia y granulometría', completed: false, hours: 45 },
-      { id: 't-301-2', title: 'Construcción del modelo matemático de desgaste de bolas', completed: false, hours: 45 },
+      { id: 't-301-1', title: 'Recolección de señales de potencia y granulometría', completed: false, hours: 45, assigneeId: 'as-301-1', assigneePerson: 'Alejandro Giraldo Loaiza' },
+      { id: 't-301-2', title: 'Construcción del modelo matemático de desgaste de bolas', completed: false, hours: 45, assigneeId: 'as-301-2', assigneePerson: 'Mateo Londoño' },
     ],
     assignedPerson: 'Alejandro Giraldo Loaiza',
     assignedRole: 'Mid Full Stack Engineer',
@@ -1476,9 +1478,9 @@ export const INITIAL_ACTIVITIES: ProjectActivity[] = [
     activityTitle: 'Calibración de Algoritmo de Tiempos & Tracking de Tiendas',
     taskDetails: 'Análisis de pulsos de presión transitoria con sensores IoT acústicos en tramos de 80km.',
     tasks: [
-      { id: 't-401-1', title: 'Calibración de transductores piezorresistivos', completed: true, hours: 25 },
-      { id: 't-401-2', title: 'Adquisición de firmas de presión en válvulas de bloqueo', completed: false, hours: 30 },
-      { id: 't-401-3', title: 'Entregable de reporte de desbalance volumétrico', completed: false, hours: 30 },
+      { id: 't-401-1', title: 'Calibración de transductores piezorresistivos', completed: true, hours: 25, assigneeId: 'as-401-1', assigneePerson: 'Mateo Londoño' },
+      { id: 't-401-2', title: 'Adquisición de firmas de presión en válvulas de bloqueo', completed: false, hours: 30, assigneeId: 'as-401-1', assigneePerson: 'Mateo Londoño' },
+      { id: 't-401-3', title: 'Entregable de reporte de desbalance volumétrico', completed: false, hours: 30, assigneeId: 'as-401-1', assigneePerson: 'Mateo Londoño' },
     ],
     assignedPerson: 'Mateo Londoño',
     assignedRole: 'Principal Solutions Architect',

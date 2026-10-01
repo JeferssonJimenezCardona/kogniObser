@@ -9,6 +9,9 @@ import {
   SlidersHorizontal,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  ChevronsUpDown,
   AlertTriangle,
   CheckCircle2,
   Clock,
@@ -30,6 +33,7 @@ import {
   User,
   UserPlus,
   RotateCcw,
+  ListPlus,
 } from 'lucide-react';
 import {
   ProjectActivity,
@@ -142,22 +146,56 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
   };
 
   const [formData, setFormData] = useState(initialFormState);
-  const [newTaskInput, setNewTaskInput] = useState('');
-  const [newTaskHours, setNewTaskHours] = useState<number | string>(8);
+  const [collapsedAssignees, setCollapsedAssignees] = useState<Record<string, boolean>>({});
+  const [newTaskInputs, setNewTaskInputs] = useState<Record<string, string>>({});
+  const [newTaskHoursMap, setNewTaskHoursMap] = useState<Record<string, number | string>>({});
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [selectedCollaboratorForDetail, setSelectedCollaboratorForDetail] = useState<CollaboratorCapacity | null>(null);
+
+  // Toggle individual assignee collapse/expand
+  const toggleCollapseAssignee = (id: string) => {
+    setCollapsedAssignees((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
+
+  // Toggle collapse/expand all assignees
+  const areAllAssigneesCollapsed =
+    formData.assignees.length > 0 &&
+    formData.assignees.every((a) => collapsedAssignees[a.id]);
+
+  const toggleCollapseAllAssignees = () => {
+    if (areAllAssigneesCollapsed) {
+      setCollapsedAssignees({});
+    } else {
+      const nextState: Record<string, boolean> = {};
+      formData.assignees.forEach((a) => {
+        nextState[a.id] = true;
+      });
+      setCollapsedAssignees(nextState);
+    }
+  };
 
   // Open Add Modal
   const handleOpenAdd = () => {
     setEditingActivityId(null);
+    const defaultAssigneeId = `as-new-${Date.now()}`;
+    const defaultPerson = 'Mateo Londoño';
     setFormData({
       ...initialFormState,
       assignees: [
-        { id: `as-new-${Date.now()}`, person: 'Mateo Londoño', role: 'Principal Solutions Architect', percent: 35 },
+        { id: defaultAssigneeId, person: defaultPerson, role: 'Principal Solutions Architect', percent: 35 },
+      ],
+      tasks: [
+        { id: `t-new-1`, title: 'Planificación de entregables y arquitectura', completed: false, hours: 20, assigneeId: defaultAssigneeId, assigneePerson: defaultPerson },
+        { id: `t-new-2`, title: 'Ejecución técnica e integración', completed: false, hours: 30, assigneeId: defaultAssigneeId, assigneePerson: defaultPerson },
+        { id: `t-new-3`, title: 'Validación en ambiente de pruebas', completed: false, hours: 15, assigneeId: defaultAssigneeId, assigneePerson: defaultPerson },
       ],
     });
-    setNewTaskInput('');
-    setNewTaskHours(8);
+    setNewTaskInputs({});
+    setNewTaskHoursMap({});
+    setCollapsedAssignees({});
     setIsModalOpen(true);
   };
 
@@ -186,6 +224,24 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
         (resolvedAssignees.length || 1)
     );
 
+    const resolvedTasks: ActivityTask[] = (act.tasks || []).map((t, idx) => {
+      const match =
+        resolvedAssignees.find((a) => a.id === t.assigneeId || a.person === t.assigneePerson) ||
+        resolvedAssignees[idx % resolvedAssignees.length];
+      return {
+        ...t,
+        hours: t.hours ?? 10,
+        assigneeId: t.assigneeId || match.id,
+        assigneePerson: t.assigneePerson || match.person,
+      };
+    });
+
+    const finalTasks = resolvedTasks.length > 0 ? resolvedTasks : [
+      { id: `t-def-1`, title: 'Diseño e inicio de entregables', completed: (act.progressPercent || 0) > 0, hours: 15, assigneeId: resolvedAssignees[0].id, assigneePerson: resolvedAssignees[0].person },
+      { id: `t-def-2`, title: 'Implementación técnica', completed: (act.progressPercent || 0) >= 50, hours: 25, assigneeId: resolvedAssignees[0].id, assigneePerson: resolvedAssignees[0].person },
+      { id: `t-def-3`, title: 'Cierre y entrega al cliente', completed: (act.progressPercent || 0) === 100, hours: 10, assigneeId: resolvedAssignees[0].id, assigneePerson: resolvedAssignees[0].person },
+    ];
+
     setFormData({
       projectName: act.projectName,
       client: act.client,
@@ -201,16 +257,11 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
       additionalDate: act.additionalDate || '',
       estimatedHours: act.estimatedHours,
       activeMonths: act.activeMonths || ['2026-10'],
-      tasks: act.tasks?.length
-        ? act.tasks.map((t) => ({ ...t, hours: t.hours ?? 10 }))
-        : [
-            { id: `t-def-1`, title: 'Diseño e inicio de entregables', completed: (act.progressPercent || 0) > 0, hours: 15 },
-            { id: `t-def-2`, title: 'Implementación técnica', completed: (act.progressPercent || 0) >= 50, hours: 25 },
-            { id: `t-def-3`, title: 'Cierre y entrega al cliente', completed: (act.progressPercent || 0) === 100, hours: 10 },
-          ],
+      tasks: finalTasks,
     });
-    setNewTaskInput('');
-    setNewTaskHours(8);
+    setNewTaskInputs({});
+    setNewTaskHoursMap({});
+    setCollapsedAssignees({});
     setIsModalOpen(true);
   };
 
@@ -219,8 +270,9 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
     const assignedNames = formData.assignees.map((a) => a.person);
     const available =
       collaborators.find((c) => !assignedNames.includes(c.name)) || collaborators[0];
+    const newId = `as-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`;
     const newAssignee: ActivityAssignee = {
-      id: `as-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+      id: newId,
       person: available.name,
       role: available.role,
       percent: 30,
@@ -235,13 +287,16 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
       assignedPerson: updatedAssignees.map((a) => a.person).join(', '),
       allocationPercent: avg,
     }));
+    setCollapsedAssignees((prev) => ({ ...prev, [newId]: false }));
   };
 
   const handleUpdateAssigneeInForm = (id: string, updates: Partial<ActivityAssignee>) => {
+    let personNameChanged: string | null = null;
     const updatedAssignees = formData.assignees.map((a) => {
       if (a.id !== id) return a;
       const updated = { ...a, ...updates };
-      if (updates.person) {
+      if (updates.person && updates.person !== a.person) {
+        personNameChanged = updates.person;
         const found = collaborators.find((c) => c.name === updates.person);
         if (found) updated.role = found.role;
       }
@@ -250,17 +305,33 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
     const avg = Math.round(
       updatedAssignees.reduce((acc, a) => acc + (Number(a.percent) || 0), 0) / (updatedAssignees.length || 1)
     );
+
+    // Sync assigneePerson name on tasks if person name was changed
+    let updatedTasks = formData.tasks;
+    if (personNameChanged) {
+      const newName = personNameChanged;
+      updatedTasks = formData.tasks.map((t) =>
+        t.assigneeId === id ? { ...t, assigneePerson: newName } : t
+      );
+    }
+
     setFormData((prev) => ({
       ...prev,
       assignees: updatedAssignees,
       assignedPerson: updatedAssignees.map((a) => a.person).join(', '),
       allocationPercent: avg,
+      tasks: updatedTasks,
     }));
   };
 
   const handleRemoveAssigneeInForm = (id: string) => {
     if (formData.assignees.length <= 1) return;
     const updatedAssignees = formData.assignees.filter((a) => a.id !== id);
+    const target = updatedAssignees[0];
+    // Reassign orphaned tasks to the first remaining collaborator
+    const updatedTasks = formData.tasks.map((t) =>
+      t.assigneeId === id ? { ...t, assigneeId: target.id, assigneePerson: target.person } : t
+    );
     const avg = Math.round(
       updatedAssignees.reduce((acc, a) => acc + (Number(a.percent) || 0), 0) / (updatedAssignees.length || 1)
     );
@@ -269,6 +340,7 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
       assignees: updatedAssignees,
       assignedPerson: updatedAssignees.map((a) => a.person).join(', '),
       allocationPercent: avg,
+      tasks: updatedTasks,
     }));
   };
 
@@ -303,18 +375,20 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
     }));
   };
 
-  // Add task to checklist in form
-  const handleAddTaskToForm = () => {
-    if (!newTaskInput.trim()) return;
-    const hoursNum = Math.max(1, Number(newTaskHours) || 8);
+  // Add task for specific assignee
+  const handleAddTaskForAssignee = (assigneeId: string, personName: string) => {
+    const title = (newTaskInputs[assigneeId] || '').trim();
+    if (!title) return;
+    const hoursNum = Math.max(1, Number(newTaskHoursMap[assigneeId]) || 8);
     const newTask: ActivityTask = {
-      id: `t-${Date.now()}`,
-      title: newTaskInput.trim(),
+      id: `t-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      title,
       completed: false,
       hours: hoursNum,
+      assigneeId,
+      assigneePerson: personName,
     };
     const updatedTasks = [...formData.tasks, newTask];
-    // recalculate progress if there are tasks
     const completedCount = updatedTasks.filter((t) => t.completed).length;
     const autoProgress = Math.round((completedCount / updatedTasks.length) * 100);
     const totalTaskHours = updatedTasks.reduce((acc, t) => acc + (t.hours || 0), 0);
@@ -326,8 +400,9 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
       progressPercent: autoProgress,
       status: getStatusFromProgress(autoProgress),
     }));
-    setNewTaskInput('');
-    setNewTaskHours(8);
+
+    setNewTaskInputs((prev) => ({ ...prev, [assigneeId]: '' }));
+    setNewTaskHoursMap((prev) => ({ ...prev, [assigneeId]: 8 }));
   };
 
   // Update task hours in form
@@ -345,25 +420,51 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
     }));
   };
 
-  // Quick sync: Set allocation % based on task effort hours vs 182h reference
-  const handleSyncTasksHoursToAllocation = () => {
-    const totalTaskHours = formData.tasks.reduce((acc, t) => acc + (t.hours || 0), 0);
-    if (totalTaskHours <= 0) return;
-    const computedPercent = Math.min(200, Math.round((totalTaskHours / BASE_MONTHLY_CAPACITY_HOURS) * 100));
-    
-    // Distribute among assignees or set for single assignee
-    const count = formData.assignees.length || 1;
-    const perAssignee = Math.max(5, Math.round(computedPercent / count));
-    const updatedAssignees = formData.assignees.map((a) => ({
-      ...a,
-      percent: perAssignee,
-    }));
+  // Synchronize an individual assignee's allocation percent with their assigned tasks' effort hours (vs 182h)
+  const handleSyncPersonTasksToPercent = (assigneeId: string) => {
+    const personTasks = formData.tasks.filter((t) => t.assigneeId === assigneeId);
+    const personHours = personTasks.reduce((acc, t) => acc + (t.hours || 0), 0);
+    if (personHours <= 0) return;
+    const computedPercent = Math.min(100, Math.max(5, Math.round((personHours / BASE_MONTHLY_CAPACITY_HOURS) * 100)));
 
+    const updatedAssignees = formData.assignees.map((a) =>
+      a.id === assigneeId ? { ...a, percent: computedPercent } : a
+    );
+    const avg = Math.round(
+      updatedAssignees.reduce((acc, a) => acc + (Number(a.percent) || 0), 0) / (updatedAssignees.length || 1)
+    );
     setFormData((prev) => ({
       ...prev,
       assignees: updatedAssignees,
-      allocationPercent: computedPercent,
-      estimatedHours: totalTaskHours,
+      allocationPercent: avg,
+    }));
+  };
+
+  // Synchronize ALL assignees with their respective task hours
+  const handleSyncAllTasksToAllocation = () => {
+    const totalHours = formData.tasks.reduce((acc, t) => acc + (t.hours || 0), 0);
+    if (totalHours <= 0) return;
+
+    const updatedAssignees = formData.assignees.map((a) => {
+      const pTasks = formData.tasks.filter((t) => t.assigneeId === a.id);
+      const pHours = pTasks.reduce((acc, t) => acc + (t.hours || 0), 0);
+      if (pHours > 0) {
+        return {
+          ...a,
+          percent: Math.min(100, Math.max(5, Math.round((pHours / BASE_MONTHLY_CAPACITY_HOURS) * 100))),
+        };
+      }
+      return a;
+    });
+
+    const avg = Math.round(
+      updatedAssignees.reduce((acc, a) => acc + (Number(a.percent) || 0), 0) / (updatedAssignees.length || 1)
+    );
+    setFormData((prev) => ({
+      ...prev,
+      assignees: updatedAssignees,
+      allocationPercent: avg,
+      estimatedHours: totalHours,
     }));
   };
 
@@ -981,32 +1082,46 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                       <td className="px-3 py-2.5">
                         {act.assignees && act.assignees.length > 0 ? (
                           <div className="space-y-1.5">
-                            {act.assignees.map((as) => (
-                              <div key={as.id} className="flex items-center justify-between gap-2 max-w-[250px]">
-                                <div className="flex items-center gap-1.5 min-w-0">
-                                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0F2942]/10 text-[9px] font-bold text-[#0F2942]">
-                                    {as.person.split(' ').map((n) => n[0]).slice(0, 2).join('')}
+                            {act.assignees.map((as) => {
+                              const pTasks = (act.tasks || []).filter(
+                                (t) => t.assigneeId === as.id || t.assigneePerson === as.person
+                              );
+                              const pHours = pTasks.reduce((acc, t) => acc + (t.hours || 0), 0);
+
+                              return (
+                                <div key={as.id} className="flex items-center justify-between gap-2 max-w-[280px]">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0F2942]/10 text-[9px] font-bold text-[#0F2942]">
+                                      {as.person.split(' ').map((n) => n[0]).slice(0, 2).join('')}
+                                    </div>
+                                    <div className="min-w-0 truncate">
+                                      <span className="font-semibold text-xs text-[#0F2942] truncate block" title={`${as.person} (${as.role})`}>
+                                        {as.person}
+                                      </span>
+                                      {pTasks.length > 0 && (
+                                        <span className="font-mono-tech text-[8.5px] text-[#181B1E]/60 truncate block" title={`${pTasks.length} tareas asignadas con ${pHours}h de esfuerzo`}>
+                                          {pTasks.length} {pTasks.length === 1 ? 'tarea' : 'tareas'} · {pHours}h
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
-                                  <span className="font-semibold text-xs text-[#0F2942] truncate" title={`${as.person} (${as.role})`}>
-                                    {as.person}
-                                  </span>
+                                  <div className="shrink-0 flex items-center gap-1 font-mono-tech">
+                                    <span
+                                      className="text-[10px] font-bold text-[#0F2942] bg-[#F3F0EB] border border-[#0F2942]/15 px-1.5 py-0.5 rounded shadow-2xs"
+                                      title={`Asignación individual de ${as.person}: ${as.percent}%`}
+                                    >
+                                      {as.percent}%
+                                    </span>
+                                    <span
+                                      className="text-[9.5px] font-bold text-[#07B1C5] bg-[#07B1C5]/10 border border-[#07B1C5]/20 px-1 py-0.5 rounded"
+                                      title={`${Math.round((as.percent / 100) * BASE_MONTHLY_CAPACITY_HOURS * 10) / 10} horas asignadas de 182h`}
+                                    >
+                                      {Math.round((as.percent / 100) * BASE_MONTHLY_CAPACITY_HOURS * 10) / 10}h
+                                    </span>
+                                  </div>
                                 </div>
-                                <div className="shrink-0 flex items-center gap-1 font-mono-tech">
-                                  <span
-                                    className="text-[10px] font-bold text-[#0F2942] bg-[#F3F0EB] border border-[#0F2942]/15 px-1.5 py-0.5 rounded shadow-2xs"
-                                    title={`Asignación individual de ${as.person}: ${as.percent}%`}
-                                  >
-                                    {as.percent}%
-                                  </span>
-                                  <span
-                                    className="text-[9.5px] font-bold text-[#07B1C5] bg-[#07B1C5]/10 border border-[#07B1C5]/20 px-1 py-0.5 rounded"
-                                    title={`${Math.round((as.percent / 100) * BASE_MONTHLY_CAPACITY_HOURS * 10) / 10} horas asignadas de 182h`}
-                                  >
-                                    {Math.round((as.percent / 100) * BASE_MONTHLY_CAPACITY_HOURS * 10) / 10}h
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         ) : (
                           <div>
@@ -1932,177 +2047,481 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                 </div>
               </div>
 
-              {/* CHECKLIST DE TAREAS & HORAS DE ESFUERZO */}
+              {/* =====================================================================
+                  A QUIÉN ASIGNO * & CHECKLIST DE TAREAS / SUBTAREAS POR PERSONA
+                  - Flexibilidad de agregar tareas por cada colaborador
+                  - Capacidad de colapsar y mostrar individualmente y TODO
+                  - Horas de esfuerzo individuales sobre base mensual de 182h
+              ===================================================================== */}
               {(() => {
                 const totalTaskHours = formData.tasks.reduce((acc, t) => acc + (t.hours || 0), 0);
                 const completedTaskHours = formData.tasks
                   .filter((t) => t.completed)
                   .reduce((acc, t) => acc + (t.hours || 0), 0);
-                const totalCapPercent = ((totalTaskHours / BASE_MONTHLY_CAPACITY_HOURS) * 100).toFixed(1);
+                const totalTasksCount = formData.tasks.length;
+                const completedTasksCount = formData.tasks.filter((t) => t.completed).length;
+
+                // Tareas sin asignar a ningún colaborador actual
+                const unassignedTasks = formData.tasks.filter(
+                  (t) => !formData.assignees.some((a) => a.id === t.assigneeId)
+                );
 
                 return (
-                  <div className="rounded-xl bg-[#F3F0EB]/60 border border-[#0F2942]/10 p-3 space-y-2.5">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <label className="font-mono-tech text-[10px] font-bold text-[#0F2942] uppercase tracking-wide">
-                          Checklist de Tareas / Subtareas
-                        </label>
-                        <span className="font-mono-tech text-[9.5px] text-[#07B1C5] font-bold bg-[#07B1C5]/10 px-2 py-0.5 rounded border border-[#07B1C5]/20">
-                          {formData.tasks.filter((t) => t.completed).length}/{formData.tasks.length} completadas
-                        </span>
+                  <div className="rounded-xl bg-[#F3F0EB]/60 border border-[#0F2942]/15 p-3.5 space-y-3.5 shadow-xs">
+                    {/* Header Bar */}
+                    <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2 border-b border-[#0F2942]/10">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#0F2942] text-[#07B1C5] shadow-2xs">
+                          <UserPlus className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <label className="font-mono-tech text-[11px] font-bold text-[#0F2942] uppercase tracking-wide">
+                              A Quién Asigno <span className="text-red-500">*</span>
+                            </label>
+                            <span className="font-mono-tech text-[9.5px] text-[#0F2942]/70 font-semibold">
+                              &amp; Checklist de Tareas / Subtareas por Persona
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="font-mono-tech text-[9.5px] text-[#0F2942] font-semibold bg-white border border-[#0F2942]/15 px-2 py-0.5 rounded-full shadow-2xs">
+                              {formData.assignees.length} {formData.assignees.length === 1 ? 'persona asignada' : 'personas asignadas'}
+                            </span>
+                            <span className="font-mono-tech text-[9.5px] text-[#07B1C5] font-bold bg-[#07B1C5]/10 border border-[#07B1C5]/20 px-2 py-0.5 rounded-full">
+                              {completedTasksCount}/{totalTasksCount} subtareas listas ({totalTaskHours}h esfuerzo)
+                            </span>
+                          </div>
+                        </div>
                       </div>
 
-                      {/* Resumen total de horas y ocupación sobre las 182h */}
-                      <div className="flex items-center gap-2 font-mono-tech text-[10px]">
-                        <span className="font-bold text-[#0F2942] bg-white border border-[#0F2942]/15 px-2 py-0.5 rounded shadow-2xs">
-                          Esfuerzo: <strong className="text-[#07B1C5]">{totalTaskHours}h</strong>{' '}
-                          <span className="text-[#181B1E]/50 font-normal">({completedTaskHours}h listas)</span>
-                        </span>
-                        <span className="text-[#181B1E]/70 font-semibold hidden sm:inline" title="Ocupación sobre la capacidad base de 182 horas mensuales">
-                          Ocupa: <strong className="text-[#0F2942]">{totalCapPercent}%</strong> de 182h
-                        </span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {/* CAPACIDAD (% Y HORAS SOBRE BASE 182H) */}
+                        <div className="flex items-center gap-1.5 bg-[#0F2942] border border-[#0F2942] rounded-lg px-2.5 py-1.5 shadow-xs text-white">
+                          <TrendingUp className="h-3.5 w-3.5 text-[#07B1C5]" />
+                          <span className="font-mono-tech text-[10px] font-bold uppercase tracking-wider text-white/80">
+                            Capacidad:
+                          </span>
+                          <span className="font-mono-tech text-xs font-bold text-[#07B1C5] bg-white/10 px-2 py-0.5 rounded border border-white/20">
+                            {formData.allocationPercent}%
+                          </span>
+                          <span className="font-mono-tech text-xs font-bold text-white">
+                            · {Math.round((formData.allocationPercent / 100) * BASE_MONTHLY_CAPACITY_HOURS * 10) / 10}h
+                          </span>
+                          <span className="font-mono-tech text-[9px] text-white/60">
+                            / 182h
+                          </span>
+                        </div>
+
+                        {/* BOTÓN COLAPSAR / MOSTRAR TODO */}
+                        <button
+                          type="button"
+                          onClick={toggleCollapseAllAssignees}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-[#0F2942]/20 bg-white hover:bg-[#0F2942] hover:text-white px-2.5 py-1.5 font-mono-tech text-[10.5px] font-bold text-[#0F2942] transition-colors cursor-pointer shadow-2xs"
+                          title={areAllAssigneesCollapsed ? 'Mostrar todas las tareas de todos los colaboradores' : 'Colapsar todas las tareas'}
+                        >
+                          {areAllAssigneesCollapsed ? (
+                            <>
+                              <ChevronDown className="h-3.5 w-3.5 text-[#07B1C5]" />
+                              <span>Mostrar TODO</span>
+                            </>
+                          ) : (
+                            <>
+                              <ChevronUp className="h-3.5 w-3.5 text-[#07B1C5]" />
+                              <span>Colapsar TODO</span>
+                            </>
+                          )}
+                        </button>
+
+                        {/* Sincronización rápida a asignación */}
+                        {totalTaskHours > 0 && (
+                          <button
+                            type="button"
+                            onClick={handleSyncAllTasksToAllocation}
+                            className="hidden sm:inline-flex items-center gap-1 rounded-lg border border-[#07B1C5]/30 bg-[#07B1C5]/10 hover:bg-[#07B1C5] hover:text-white px-2 py-1.5 font-mono-tech text-[10px] font-bold text-[#0F2942] transition-colors cursor-pointer shadow-2xs"
+                            title="Ajusta la asignación de cada persona automáticamente según las horas de sus subtareas asignadas contra la base de 182h"
+                          >
+                            <TrendingUp className="h-3 w-3 text-[#07B1C5]" />
+                            <span>Sincronizar %</span>
+                          </button>
+                        )}
                       </div>
                     </div>
 
-                    {/* Sincronización rápida opcional si hay horas de tareas */}
-                    {totalTaskHours > 0 && (
-                      <div className="flex items-center justify-between gap-2 bg-[#07B1C5]/10 border border-[#07B1C5]/20 px-2.5 py-1.5 rounded-lg text-[10.5px]">
-                        <div className="flex items-center gap-1.5 text-[#0F2942] font-mono-tech">
-                          <TrendingUp className="h-3.5 w-3.5 text-[#07B1C5] shrink-0" />
-                          <span>
-                            Total: <strong>{totalTaskHours}h</strong> de esfuerzo = <strong>{totalCapPercent}%</strong> de la capacidad base (182h).
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={handleSyncTasksHoursToAllocation}
-                          className="font-mono-tech text-[9.5px] font-bold text-[#0F2942] bg-white hover:bg-[#0F2942] hover:text-white px-2 py-0.5 rounded border border-[#0F2942]/15 transition-colors cursor-pointer shrink-0 shadow-2xs"
-                          title="Ajusta el % de asignación para que coincida exactamente con las horas estimadas de las tareas"
-                        >
-                          Sincronizar a Asignación
-                        </button>
-                      </div>
-                    )}
-
-                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-0.5">
-                      {formData.tasks.map((task) => {
-                        const taskHours = task.hours || 0;
-                        const taskPercent = ((taskHours / BASE_MONTHLY_CAPACITY_HOURS) * 100).toFixed(1);
+                    {/* LISTA DE COLABORADORES CON SUS CHECKLISTS DE TAREAS */}
+                    <div className="space-y-3">
+                      {formData.assignees.map((as, index) => {
+                        const isCollapsed = !!collapsedAssignees[as.id];
+                        // Tareas asignadas a este colaborador (o a index 0 si no tienen assigneeId)
+                        const personTasks = formData.tasks.filter(
+                          (t) => t.assigneeId === as.id || (!t.assigneeId && index === 0)
+                        );
+                        const personHours = personTasks.reduce((acc, t) => acc + (t.hours || 0), 0);
+                        const personCompleted = personTasks.filter((t) => t.completed).length;
+                        const personCapPercent = ((personHours / BASE_MONTHLY_CAPACITY_HOURS) * 100).toFixed(1);
 
                         return (
                           <div
-                            key={task.id}
-                            className="flex items-center justify-between gap-2 rounded bg-white border border-[#0F2942]/10 p-1.5 text-xs hover:border-[#07B1C5]/30 transition-colors"
+                            key={as.id}
+                            className={`rounded-xl border transition-all ${
+                              isCollapsed
+                                ? 'bg-white/80 border-[#0F2942]/15 shadow-2xs'
+                                : 'bg-white border-[#0F2942]/20 shadow-xs ring-1 ring-[#0F2942]/5'
+                            }`}
                           >
-                            <button
-                              type="button"
-                              onClick={() => handleToggleTaskInForm(task.id)}
-                              className="flex items-center gap-2 text-left flex-1 min-w-0 cursor-pointer"
-                            >
-                              {task.completed ? (
-                                <CheckSquare className="h-4 w-4 text-[#2F7F61] shrink-0" />
-                              ) : (
-                                <Square className="h-4 w-4 text-[#181B1E]/40 shrink-0" />
-                              )}
-                              <span
-                                className={`truncate ${
-                                  task.completed ? 'line-through text-[#2F7F61]/70' : 'text-[#0F2942] font-medium'
-                                }`}
-                              >
-                                {task.title}
-                              </span>
-                            </button>
-
-                            {/* Horas de esfuerzo individual de la tarea + % de 182h */}
-                            <div className="flex items-center gap-1.5 shrink-0 font-mono-tech">
-                              <div
-                                className="flex items-center gap-1 bg-[#F3F0EB]/70 border border-[#0F2942]/15 rounded px-1.5 py-0.5"
-                                title="Horas de esfuerzo estimadas para esta tarea"
-                              >
-                                <Clock className="h-3 w-3 text-[#07B1C5]" />
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="182"
-                                  value={taskHours}
+                            {/* Collaborator Header Row */}
+                            <div className="p-3 bg-[#F3F0EB]/30 rounded-t-xl border-b border-[#0F2942]/10 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                              {/* Left: Persona Selector & Role */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="font-mono-tech text-[9px] font-bold text-[#0F2942] bg-[#0F2942]/10 px-1.5 py-0.2 rounded uppercase">
+                                    Colaborador #{index + 1}
+                                  </span>
+                                  <span className="font-mono-tech text-[9.5px] text-[#181B1E]/60 truncate" title={as.role}>
+                                    {as.role}
+                                  </span>
+                                </div>
+                                <select
+                                  value={as.person}
                                   onChange={(e) =>
-                                    handleUpdateTaskHoursInForm(task.id, Number(e.target.value))
+                                    handleUpdateAssigneeInForm(as.id, { person: e.target.value })
                                   }
-                                  className="w-12 bg-transparent text-right font-bold text-xs text-[#0F2942] focus:outline-none"
-                                />
-                                <span className="text-[10px] text-[#181B1E]/60 font-semibold">h</span>
+                                  className="w-full rounded-md border border-[#0F2942]/20 px-2.5 py-1.5 text-xs text-[#0F2942] font-semibold focus:border-[#07B1C5] focus:outline-none bg-white cursor-pointer"
+                                >
+                                  {collaborators.map((c) => (
+                                    <option key={c.id} value={c.name}>
+                                      {c.name} — ({c.role})
+                                    </option>
+                                  ))}
+                                </select>
                               </div>
 
-                              <span
-                                className="font-mono-tech text-[9.5px] font-bold text-[#0F2942]/70 bg-[#0F2942]/5 border border-[#0F2942]/10 px-1.5 py-0.5 rounded shadow-2xs"
-                                title={`Esta subtarea representa el ${taskPercent}% de las 182 horas mensuales`}
-                              >
-                                {taskPercent}%
-                              </span>
+                              {/* Center: Asignación Individual Slider & % / horas */}
+                              <div className="w-full md:w-[220px] shrink-0">
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="font-mono-tech text-[9px] font-bold text-[#0F2942] uppercase tracking-wide">
+                                    Asignación
+                                  </span>
+                                  <span className="font-mono-tech text-[9.5px] font-bold text-[#07B1C5] bg-[#0F2942]/5 px-1.5 py-0.2 rounded border border-[#0F2942]/10 shadow-2xs">
+                                    {Math.round((as.percent / 100) * BASE_MONTHLY_CAPACITY_HOURS * 10) / 10}h / 182h
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <input
+                                    type="range"
+                                    min="5"
+                                    max="100"
+                                    step="5"
+                                    value={as.percent}
+                                    onChange={(e) =>
+                                      handleUpdateAssigneeInForm(as.id, { percent: Number(e.target.value) })
+                                    }
+                                    className="flex-1 accent-[#07B1C5] cursor-pointer"
+                                  />
+                                  <div className="relative w-14 shrink-0">
+                                    <input
+                                      type="number"
+                                      min="5"
+                                      max="100"
+                                      step="5"
+                                      value={as.percent}
+                                      onChange={(e) =>
+                                        handleUpdateAssigneeInForm(as.id, {
+                                          percent: Math.max(5, Math.min(100, Number(e.target.value))),
+                                        })
+                                      }
+                                      className="w-full rounded-md border border-[#0F2942]/20 bg-white pr-4 pl-1.5 py-1 text-center font-mono-tech text-xs font-bold text-[#0F2942] focus:outline-none focus:border-[#07B1C5] shadow-2xs"
+                                    />
+                                    <span className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 font-mono-tech text-[10px] font-bold text-[#0F2942]/60">
+                                      %
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
 
+                              {/* Right: Actions (Sincronizar %, Colapsar/Mostrar, Eliminar) */}
+                              <div className="flex items-center justify-end gap-1.5 pt-1 md:pt-3 shrink-0">
+                                {personHours > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSyncPersonTasksToPercent(as.id)}
+                                    className="px-2 py-1 rounded bg-[#07B1C5]/10 hover:bg-[#07B1C5] hover:text-white text-[#0F2942] font-mono-tech text-[9.5px] font-bold transition-colors cursor-pointer"
+                                    title={`Ajustar % de ${as.person} para reflejar exactamente sus ${personHours}h de tareas asignadas`}
+                                  >
+                                    Auto % ({personHours}h)
+                                  </button>
+                                )}
+
+                                {/* BOTÓN INDIVIDUAL COLAPSAR / MOSTRAR */}
+                                <button
+                                  type="button"
+                                  onClick={() => toggleCollapseAssignee(as.id)}
+                                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md font-mono-tech text-[10px] font-bold transition-all cursor-pointer border ${
+                                    isCollapsed
+                                      ? 'bg-white border-[#0F2942]/20 text-[#0F2942] hover:bg-[#F3F0EB]'
+                                      : 'bg-[#0F2942]/10 border-[#0F2942]/20 text-[#0F2942] hover:bg-[#0F2942]/15'
+                                  }`}
+                                  title={isCollapsed ? `Mostrar tareas de ${as.person}` : `Colapsar tareas de ${as.person}`}
+                                >
+                                  {isCollapsed ? (
+                                    <>
+                                      <ChevronDown className="h-3.5 w-3.5 text-[#07B1C5]" />
+                                      <span>Mostrar ({personTasks.length})</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ChevronUp className="h-3.5 w-3.5 text-[#07B1C5]" />
+                                      <span>Colapsar</span>
+                                    </>
+                                  )}
+                                </button>
+
+                                {/* Eliminar colaborador (si hay más de 1) */}
+                                {formData.assignees.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveAssigneeInForm(as.id)}
+                                    className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                                    title="Quitar colaborador"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* COLLAPSED SUMMARY VIEW */}
+                            {isCollapsed ? (
                               <button
                                 type="button"
-                                onClick={() => handleRemoveTaskFromForm(task.id)}
-                                className="text-[#181B1E]/40 hover:text-red-600 p-0.5 cursor-pointer transition-colors"
-                                title="Eliminar tarea"
+                                onClick={() => toggleCollapseAssignee(as.id)}
+                                className="w-full px-3.5 py-2.5 text-left flex items-center justify-between gap-2 hover:bg-[#F3F0EB]/50 transition-colors cursor-pointer rounded-b-xl"
                               >
-                                <X className="h-3.5 w-3.5" />
+                                <div className="flex items-center gap-2 font-mono-tech text-xs text-[#0F2942]">
+                                  <CheckSquare className="h-3.5 w-3.5 text-[#07B1C5]" />
+                                  <span className="font-bold">{personTasks.length} tareas asignadas</span>
+                                  <span className="text-[#181B1E]/60">·</span>
+                                  <span className="font-semibold text-[#07B1C5]">{personHours}h de esfuerzo</span>
+                                  <span className="text-[#181B1E]/60 font-normal">({personCapPercent}% de 182h)</span>
+                                  <span className="text-[#181B1E]/60">·</span>
+                                  <span className="text-[#2F7F61] font-semibold">{personCompleted} completadas</span>
+                                </div>
+                                <span className="font-mono-tech text-[9.5px] font-bold text-[#07B1C5] flex items-center gap-1">
+                                  <span>Mostrar tareas</span>
+                                  <ChevronDown className="h-3.5 w-3.5" />
+                                </span>
                               </button>
-                            </div>
+                            ) : (
+                              /* EXPANDED CHECKLIST & ADD TASK VIEW */
+                              <div className="p-3.5 space-y-2.5">
+                                {/* Checklist Header for this person */}
+                                <div className="flex items-center justify-between gap-2 font-mono-tech text-[10px]">
+                                  <div className="flex items-center gap-1.5 font-bold text-[#0F2942]">
+                                    <ListPlus className="h-3.5 w-3.5 text-[#07B1C5]" />
+                                    <span>Checklist de {as.person.split(' ')[0]}:</span>
+                                    <span className="text-[#07B1C5] font-semibold bg-[#07B1C5]/10 px-1.5 py-0.2 rounded border border-[#07B1C5]/20">
+                                      {personCompleted}/{personTasks.length} listas
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 text-[#181B1E]/70">
+                                    <span>Esfuerzo: <strong className="text-[#0F2942]">{personHours}h</strong></span>
+                                    <span>({personCapPercent}% de 182h)</span>
+                                  </div>
+                                </div>
+
+                                {/* List of Tasks assigned to this person */}
+                                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-0.5">
+                                  {personTasks.length === 0 ? (
+                                    <div className="rounded-lg border border-dashed border-[#0F2942]/15 p-2.5 text-center text-[10.5px] text-[#181B1E]/60 bg-[#F3F0EB]/30">
+                                      No hay tareas asignadas para {as.person}. Puedes agregar subtareas específicas abajo.
+                                    </div>
+                                  ) : (
+                                    personTasks.map((task) => {
+                                      const taskHours = task.hours || 0;
+                                      const taskPercent = ((taskHours / BASE_MONTHLY_CAPACITY_HOURS) * 100).toFixed(1);
+
+                                      return (
+                                        <div
+                                          key={task.id}
+                                          className="flex items-center justify-between gap-2 rounded bg-[#F3F0EB]/40 border border-[#0F2942]/10 p-1.5 text-xs hover:border-[#07B1C5]/30 hover:bg-white transition-colors"
+                                        >
+                                          <button
+                                            type="button"
+                                            onClick={() => handleToggleTaskInForm(task.id)}
+                                            className="flex items-center gap-2 text-left flex-1 min-w-0 cursor-pointer"
+                                          >
+                                            {task.completed ? (
+                                              <CheckSquare className="h-4 w-4 text-[#2F7F61] shrink-0" />
+                                            ) : (
+                                              <Square className="h-4 w-4 text-[#181B1E]/40 shrink-0" />
+                                            )}
+                                            <span
+                                              className={`truncate ${
+                                                task.completed ? 'line-through text-[#2F7F61]/70' : 'text-[#0F2942] font-medium'
+                                              }`}
+                                            >
+                                              {task.title}
+                                            </span>
+                                          </button>
+
+                                          {/* Horas de esfuerzo individual + % de 182h */}
+                                          <div className="flex items-center gap-1.5 shrink-0 font-mono-tech">
+                                            <div
+                                              className="flex items-center gap-1 bg-white border border-[#0F2942]/15 rounded px-1.5 py-0.5 shadow-2xs"
+                                              title="Horas de esfuerzo estimadas para esta tarea"
+                                            >
+                                              <Clock className="h-3 w-3 text-[#07B1C5]" />
+                                              <input
+                                                type="number"
+                                                min="0"
+                                                max="182"
+                                                value={taskHours}
+                                                onChange={(e) =>
+                                                  handleUpdateTaskHoursInForm(task.id, Number(e.target.value))
+                                                }
+                                                className="w-12 bg-transparent text-right font-bold text-xs text-[#0F2942] focus:outline-none"
+                                              />
+                                              <span className="text-[10px] text-[#181B1E]/60 font-semibold">h</span>
+                                            </div>
+
+                                            <span
+                                              className="font-mono-tech text-[9.5px] font-bold text-[#0F2942]/70 bg-white border border-[#0F2942]/10 px-1.5 py-0.5 rounded shadow-2xs"
+                                              title={`Esta subtarea representa el ${taskPercent}% de las 182 horas mensuales`}
+                                            >
+                                              {taskPercent}%
+                                            </span>
+
+                                            <button
+                                              type="button"
+                                              onClick={() => handleRemoveTaskFromForm(task.id)}
+                                              className="text-[#181B1E]/40 hover:text-red-600 p-0.5 cursor-pointer transition-colors"
+                                              title="Eliminar tarea"
+                                            >
+                                              <X className="h-3.5 w-3.5" />
+                                            </button>
+                                          </div>
+                                        </div>
+                                      );
+                                    })
+                                  )}
+                                </div>
+
+                                {/* Add New Task directly for this collaborator */}
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-2 border-t border-[#0F2942]/10">
+                                  <input
+                                    type="text"
+                                    value={newTaskInputs[as.id] || ''}
+                                    onChange={(e) =>
+                                      setNewTaskInputs((prev) => ({ ...prev, [as.id]: e.target.value }))
+                                    }
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        handleAddTaskForAssignee(as.id, as.person);
+                                      }
+                                    }}
+                                    placeholder={`Nueva tarea para ${as.person.split(' ')[0]}...`}
+                                    className="flex-1 rounded border border-[#0F2942]/20 bg-white px-2.5 py-1 text-xs text-[#0F2942] focus:border-[#07B1C5] focus:outline-none"
+                                  />
+
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <div
+                                      className="flex items-center gap-1 rounded border border-[#0F2942]/20 bg-white px-2 py-1 shadow-2xs"
+                                      title="Cantidad de horas de esfuerzo para la nueva tarea"
+                                    >
+                                      <Clock className="h-3 w-3 text-[#07B1C5]" />
+                                      <input
+                                        type="number"
+                                        min="1"
+                                        max="182"
+                                        value={newTaskHoursMap[as.id] ?? 8}
+                                        onChange={(e) =>
+                                          setNewTaskHoursMap((prev) => ({
+                                            ...prev,
+                                            [as.id]: e.target.value,
+                                          }))
+                                        }
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            handleAddTaskForAssignee(as.id, as.person);
+                                          }
+                                        }}
+                                        placeholder="Horas"
+                                        className="w-12 text-right font-mono-tech text-xs font-bold text-[#0F2942] focus:outline-none"
+                                      />
+                                      <span className="font-mono-tech text-[10px] text-[#181B1E]/60 font-semibold">h</span>
+                                    </div>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAddTaskForAssignee(as.id, as.person)}
+                                      disabled={!(newTaskInputs[as.id] || '').trim()}
+                                      className="rounded bg-[#0F2942] px-3 py-1 font-mono-tech text-[10px] font-bold text-white hover:bg-[#07B1C5] hover:text-[#0F2942] transition-colors disabled:opacity-50 cursor-pointer shadow-xs"
+                                    >
+                                      + Añadir Tarea
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         );
                       })}
                     </div>
 
-                    {/* Add new task to checklist with Title & Hours */}
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-2 border-t border-[#0F2942]/10">
-                      <input
-                        type="text"
-                        value={newTaskInput}
-                        onChange={(e) => setNewTaskInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleAddTaskToForm();
-                          }
-                        }}
-                        placeholder="Escribe una nueva tarea / subtarea..."
-                        className="flex-1 rounded border border-[#0F2942]/20 bg-white px-2.5 py-1 text-xs text-[#0F2942] focus:border-[#07B1C5] focus:outline-none"
-                      />
-
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <div
-                          className="flex items-center gap-1 rounded border border-[#0F2942]/20 bg-white px-2 py-1"
-                          title="Cantidad de horas de esfuerzo para la nueva tarea"
-                        >
-                          <Clock className="h-3 w-3 text-[#07B1C5]" />
-                          <input
-                            type="number"
-                            min="1"
-                            max="182"
-                            value={newTaskHours}
-                            onChange={(e) => setNewTaskHours(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                handleAddTaskToForm();
+                    {/* Unassigned tasks safety card (if any exist) */}
+                    {unassignedTasks.length > 0 && (
+                      <div className="rounded-xl border border-amber-300 bg-amber-50/60 p-3 space-y-2">
+                        <div className="flex items-center justify-between text-xs text-amber-900 font-bold">
+                          <span>Tareas sin asignar ({unassignedTasks.length}):</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const targetId = formData.assignees[0]?.id;
+                              const targetPerson = formData.assignees[0]?.person;
+                              if (targetId) {
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  tasks: prev.tasks.map((t) =>
+                                    !prev.assignees.some((a) => a.id === t.assigneeId)
+                                      ? { ...t, assigneeId: targetId, assigneePerson: targetPerson }
+                                      : t
+                                  ),
+                                }));
                               }
                             }}
-                            placeholder="Horas"
-                            className="w-14 text-right font-mono-tech text-xs font-bold text-[#0F2942] focus:outline-none"
-                          />
-                          <span className="font-mono-tech text-[10px] text-[#181B1E]/60 font-semibold">h</span>
+                            className="text-[10px] underline hover:text-amber-950 font-mono-tech cursor-pointer"
+                          >
+                            Asignar todas a {formData.assignees[0]?.person}
+                          </button>
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={handleAddTaskToForm}
-                          disabled={!newTaskInput.trim()}
-                          className="rounded bg-[#0F2942] px-3 py-1 font-mono-tech text-[10px] font-bold text-white hover:bg-[#07B1C5] hover:text-[#0F2942] transition-colors disabled:opacity-50 cursor-pointer shadow-xs"
-                        >
-                          + Añadir
-                        </button>
+                        <div className="space-y-1">
+                          {unassignedTasks.map((t) => (
+                            <div key={t.id} className="flex items-center justify-between text-xs bg-white p-1 rounded border border-amber-200">
+                              <span>{t.title} ({t.hours || 0}h)</span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveTaskFromForm(t.id)}
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
                       </div>
+                    )}
+
+                    {/* Botón para Añadir Otro Colaborador */}
+                    <div className="pt-1">
+                      <button
+                        type="button"
+                        onClick={handleAddAssigneeToForm}
+                        className="inline-flex items-center gap-1.5 rounded-lg border-2 border-dashed border-[#0F2942]/25 bg-white hover:bg-[#F3F0EB] px-3.5 py-2 font-mono-tech text-xs font-bold text-[#0F2942] transition-colors cursor-pointer w-full justify-center shadow-2xs"
+                      >
+                        <UserPlus className="h-4 w-4 text-[#07B1C5]" />
+                        <span>+ Agregar otro colaborador asignado (con su propio checklist de tareas)</span>
+                      </button>
                     </div>
                   </div>
                 );
@@ -2160,145 +2579,6 @@ export const ProjectsModule: React.FC<ProjectsModuleProps> = ({
                       </option>
                     ))}
                   </select>
-                </div>
-              </div>
-
-              {/* =====================================================================
-                  A QUIÉN ASIGNO (UNO O MÁS COLABORADORES CON SU RESPECTIVO %)
-                  Y CÁLCULO EN TIEMPO REAL DE LA CAPACIDAD MENSUAL
-              ===================================================================== */}
-              <div className="rounded-xl bg-[#F3F0EB]/50 border border-[#0F2942]/15 p-3.5 space-y-3 shadow-xs">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <UserPlus className="h-4 w-4 text-[#07B1C5] shrink-0" />
-                    <label className="font-mono-tech text-[11px] font-bold text-[#0F2942] uppercase tracking-wide">
-                      A Quién Asigno <span className="text-red-500">*</span>
-                    </label>
-                    <span className="font-mono-tech text-[9.5px] text-[#0F2942] font-semibold bg-white border border-[#0F2942]/15 px-2 py-0.5 rounded-full shadow-2xs">
-                      {formData.assignees.length} {formData.assignees.length === 1 ? 'persona asignada' : 'personas asignadas'}
-                    </span>
-                  </div>
-
-                  {/* CAPACIDAD (% Y HORAS SOBRE BASE 182H) */}
-                  <div className="flex items-center gap-1.5 bg-[#0F2942] border border-[#0F2942] rounded-lg px-2.5 py-1.5 shadow-xs text-white">
-                    <TrendingUp className="h-3.5 w-3.5 text-[#07B1C5]" />
-                    <span className="font-mono-tech text-[10px] font-bold uppercase tracking-wider text-white/80">
-                      Capacidad:
-                    </span>
-                    <span className="font-mono-tech text-xs font-bold text-[#07B1C5] bg-white/10 px-2 py-0.5 rounded border border-white/20">
-                      {formData.allocationPercent}%
-                    </span>
-                    <span className="font-mono-tech text-xs font-bold text-white">
-                      · {Math.round((formData.allocationPercent / 100) * BASE_MONTHLY_CAPACITY_HOURS * 10) / 10}h
-                    </span>
-                    <span className="font-mono-tech text-[9px] text-white/60">
-                      / 182h
-                    </span>
-                  </div>
-                </div>
-
-                {/* Lista interactiva de personas asignadas */}
-                <div className="space-y-2">
-                  {formData.assignees.map((as, index) => (
-                    <div
-                      key={as.id}
-                      className="flex flex-col sm:flex-row sm:items-center gap-2.5 bg-white border border-[#0F2942]/15 p-2.5 rounded-lg shadow-2xs"
-                    >
-                      {/* Persona Selector */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-mono-tech text-[9px] font-bold text-[#0F2942]/70 uppercase">
-                            Colaborador #{index + 1}
-                          </span>
-                          <span className="font-mono-tech text-[9px] text-[#181B1E]/60 truncate max-w-[200px]" title={as.role}>
-                            {as.role}
-                          </span>
-                        </div>
-                        <select
-                          value={as.person}
-                          onChange={(e) =>
-                            handleUpdateAssigneeInForm(as.id, { person: e.target.value })
-                          }
-                          className="w-full rounded-md border border-[#0F2942]/20 px-2.5 py-1.5 text-xs text-[#0F2942] font-semibold focus:border-[#07B1C5] focus:outline-none bg-white cursor-pointer"
-                        >
-                          {collaborators.map((c) => (
-                            <option key={c.id} value={c.name}>
-                              {c.name} — ({c.role})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Asignación Individual (% y Horas Asignadas de 182h) */}
-                      <div className="w-full sm:w-[220px] shrink-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-mono-tech text-[9px] font-bold text-[#0F2942] uppercase tracking-wide">
-                            Asignación
-                          </span>
-                          <span className="font-mono-tech text-[9.5px] font-bold text-[#07B1C5] bg-[#0F2942]/5 px-1.5 py-0.2 rounded border border-[#0F2942]/10 shadow-2xs">
-                            {Math.round((as.percent / 100) * BASE_MONTHLY_CAPACITY_HOURS * 10) / 10}h / 182h
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            type="range"
-                            min="5"
-                            max="100"
-                            step="5"
-                            value={as.percent}
-                            onChange={(e) =>
-                              handleUpdateAssigneeInForm(as.id, { percent: Number(e.target.value) })
-                            }
-                            className="flex-1 accent-[#07B1C5] cursor-pointer"
-                          />
-                          <div className="relative w-14 shrink-0">
-                            <input
-                              type="number"
-                              min="5"
-                              max="100"
-                              step="5"
-                              value={as.percent}
-                              onChange={(e) =>
-                                handleUpdateAssigneeInForm(as.id, {
-                                  percent: Math.max(5, Math.min(100, Number(e.target.value))),
-                                })
-                              }
-                              className="w-full rounded-md border border-[#0F2942]/20 bg-white pr-4 pl-1.5 py-1 text-center font-mono-tech text-xs font-bold text-[#0F2942] focus:outline-none focus:border-[#07B1C5] shadow-2xs"
-                            />
-                            <span className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 font-mono-tech text-[10px] font-bold text-[#0F2942]/60">
-                              %
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Botón Eliminar Colaborador (si hay más de 1) */}
-                      {formData.assignees.length > 1 && (
-                        <div className="flex items-center justify-end sm:pt-4">
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveAssigneeInForm(as.id)}
-                            className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors cursor-pointer"
-                            title="Quitar colaborador"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Botón para Añadir Otro Colaborador */}
-                <div className="pt-1">
-                  <button
-                    type="button"
-                    onClick={handleAddAssigneeToForm}
-                    className="inline-flex items-center gap-1.5 rounded-lg border-2 border-dashed border-[#0F2942]/25 bg-white hover:bg-[#F3F0EB] px-3 py-1.5 font-mono-tech text-xs font-bold text-[#0F2942] transition-colors cursor-pointer"
-                  >
-                    <UserPlus className="h-3.5 w-3.5 text-[#07B1C5]" />
-                    <span>+ Agregar otro colaborador asignado a este proyecto</span>
-                  </button>
                 </div>
               </div>
 
